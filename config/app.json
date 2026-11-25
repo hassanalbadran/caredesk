@@ -3,7 +3,7 @@
   "site": "https://hasn2mr.pages.dev/",
   "heartbeatHours": 6,
   "paid": false,
-  "githubRepo": "",
+  "githubRepo": "hassanalbadran/caredesk",
   "oauth": {
     "googleClientId": "",
     "microsoftClientId": ""
