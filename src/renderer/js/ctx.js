@@ -26,16 +26,22 @@ CD.beep = (kind = 'info') => {
 };
 
 // ---- context menu
-const reg = new WeakMap(); let menu = null;
+const reg = new WeakMap(); let menu = null; const subs = new Set();
 CD.onCtx = (el, fn) => { reg.set(el, fn); return el; };
-CD.closeCtx = () => { if (menu) { try { menu.hidePopover(); } catch { /* ok */ } menu.remove(); menu = null; } };
+CD.closeCtx = () => { for (const x of subs) { try { x.hidePopover(); } catch { /* ok */ } x.remove(); } subs.clear(); if (menu) { try { menu.hidePopover(); } catch { /* ok */ } menu.remove(); menu = null; } };
 CD.ctx = (e, items) => {
   CD.closeCtx(); items = items.filter(Boolean); if (!items.length) return;
   const mk = (list, sub) => h('div.cmenu' + (sub ? '.sub' : ''), { role: 'menu' }, list.filter(Boolean).map((it) => {
     if (it.sep) return h('hr');
     const row = h('button.ci', { type: 'button', role: 'menuitem', disabled: !!it.disabled, class: it.danger ? 'bad' : '' }, it.icon ? ic(it.icon, 's') : h('i'), h('span', it.label), it.hint ? h('small.dim', it.hint) : null, it.sub ? h('span.arr', '›') : null);
-    if (it.sub) { let sm = null; const open = () => { if (sm) return; sm = mk(it.sub, true); row.append(sm); const r = row.getBoundingClientRect(); const w = sm.offsetWidth || 180; sm.style.top = '-6px'; if (r.right + w > innerWidth) { sm.style.insetInlineStart = 'auto'; sm.style.right = '100%'; } };
-      row.addEventListener('mouseenter', open); row.addEventListener('click', (ev) => { ev.stopPropagation(); open(); }); row.addEventListener('mouseleave', () => { if (sm) { sm.remove(); sm = null; } }); }
+    if (it.sub) { let sm = null; let tmr = 0; const cancel = () => clearTimeout(tmr);
+      const shut = () => { cancel(); tmr = setTimeout(() => { if (sm) { try { sm.hidePopover(); } catch { /* ok */ } sm.remove(); subs.delete(sm); sm = null; } }, 200); };
+      // sub-menus live in their own top-layer popover: a popover clips its children (overflow:auto), which hid the side menu
+      const open = () => { cancel(); if (sm) return; sm = h('div.pop.ctxpop.ctxsub', { popover: 'manual' }, mk(it.sub, true)); subs.add(sm); document.body.append(sm); sm.showPopover();
+        const r = row.getBoundingClientRect(), w = sm.offsetWidth, hh = sm.offsetHeight, rtl = getComputedStyle(document.documentElement).direction === 'rtl';
+        const right = r.right + 2, left = r.left - w - 2; let x = rtl ? (left >= 6 ? left : right) : (right + w <= innerWidth - 6 ? right : left); x = Math.max(6, Math.min(x, innerWidth - w - 6));
+        sm.style.left = x + 'px'; sm.style.top = Math.max(6, Math.min(r.top - 6, innerHeight - hh - 6)) + 'px'; sm.addEventListener('mouseenter', cancel); sm.addEventListener('mouseleave', shut); };
+      row.addEventListener('mouseenter', open); row.addEventListener('click', (ev) => { ev.stopPropagation(); open(); }); row.addEventListener('mouseleave', shut); }
     else row.addEventListener('click', () => { CD.closeCtx(); it.onclick && it.onclick(); });
     return row; }));
   menu = h('div.pop.ctxpop', { popover: 'manual' }, mk(items)); document.body.append(menu); menu.showPopover();
@@ -43,7 +49,7 @@ CD.ctx = (e, items) => {
   const first = menu.querySelector('.ci:not([disabled])'); if (first) first.focus();
   menu.addEventListener('keydown', (k) => { const all = [...menu.querySelectorAll('.cmenu:not(.sub) > .ci:not([disabled])')]; const i = all.indexOf(document.activeElement); if (k.key === 'ArrowDown') { all[(i + 1) % all.length].focus(); k.preventDefault(); } else if (k.key === 'ArrowUp') { all[(i - 1 + all.length) % all.length].focus(); k.preventDefault(); } else if (k.key === 'Escape') CD.closeCtx(); });
 };
-const away = (e) => { if (menu && !menu.contains(e.target)) CD.closeCtx(); };
+const away = (e) => { if (menu && !menu.contains(e.target) && !(e.target.closest && e.target.closest('.ctxsub'))) CD.closeCtx(); };
 document.addEventListener('pointerdown', away, true); window.addEventListener('blur', () => CD.closeCtx()); window.addEventListener('resize', () => CD.closeCtx());
 
 // text fields: cut / copy / paste / select-all

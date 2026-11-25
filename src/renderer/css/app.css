@@ -205,3 +205,5 @@ body.dragging,body.dragging *{cursor:var(--cgrabbing,grabbing)!important}
 .fday.sc.lv-red{box-shadow:inset 0 0 0 2px #c0392b}.fday.sc.lv-yellow{box-shadow:inset 0 0 0 2px #b9860b}
 select.in option[data-lv=red]{color:#c0392b}select.in option[data-lv=yellow]{color:#b9860b}select.in option[data-lv=green]{color:#2e7d4f}
 .pl-day.lv-red{box-shadow:inset 0 0 0 2px #c0392b}.pl-day.lv-yellow{box-shadow:inset 0 0 0 2px #b9860b}
+
+.ctxsub .cmenu.sub{position:static;border:0;padding:0;box-shadow:none;min-width:0;background:transparent}

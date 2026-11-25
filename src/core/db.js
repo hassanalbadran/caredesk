@@ -43,6 +43,7 @@ class DB {
     this.h.exec("UPDATE tags SET effect='vip' WHERE name='VIP' AND system=0 AND effect=''; UPDATE tags SET effect='committed',system=1 WHERE name='ملتزم' AND effect=''");
     for (const t of DEFAULT_TAGS) if (!this.get('SELECT 1 x FROM tags WHERE effect=? AND effect!=\'\'', t.effect) && t.effect) this.run('INSERT INTO tags(name,name_en,tone,effect,system,color) VALUES(?,?,?,?,?,?)', t.name, t.name_en, t.tone, t.effect, t.system, t.color);
     this.h.prepare("UPDATE settings SET value='2' WHERE key='schema_version'").run();
+    this.h.exec("UPDATE secretaries SET role='admin' WHERE role IN ('manager','god')"); // only secretary + admin exist now
   }
   _seed() {
     if (this.h.prepare('SELECT COUNT(*) c FROM tags').get().c === 0) {

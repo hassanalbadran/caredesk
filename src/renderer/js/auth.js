@@ -12,7 +12,7 @@ CD.addDict({
   buy: 'شراء / تجديد', activate: 'تفعيل', actcode: 'رمز التفعيل', 'act.needLogin': 'سجّل الدخول أولاً لتفعيل الرمز.',
   'pick.title': 'من يستخدم التطبيق؟', pin: 'الرمز السري', enter: 'دخول', newpass: 'كلمة المرور الجديدة', oldpass: 'كلمة المرور الحالية', 'force.title': 'يجب تغيير كلمة المرور المؤقتة', recover: 'استعادة كلمة المرور', 'recover.sub': 'سنرسل رمزاً إلى بريدك.', send: 'إرسال',
   'err.BAD_LOGIN': 'بيانات الدخول غير صحيحة', 'err.LOCKED': 'محاولات كثيرة، حاول لاحقاً', 'err.BANNED': 'الحساب موقوف', 'err.DEVICE_LIMIT': 'تجاوزت عدد الأجهزة المسموح لهذا الحساب', 'err.BAD_USERNAME': 'اسم المستخدم: ٣–٢٤ حرفاً إنجليزياً/أرقام', 'err.BAD_EMAIL': 'بريد غير صالح', 'err.WEAK_PASSWORD': 'كلمة المرور ٨ أحرف على الأقل',
-  'err.USERNAME_TAKEN': 'اسم المستخدم مستخدم', 'err.EMAIL_TAKEN': 'البريد مستخدم', 'err.BAD_CODE': 'الرمز غير صحيح أو منتهٍ', 'err.CODE_USED': 'الرمز مستخدم سابقاً', 'err.TRIAL_USED': 'استُهلكت التجربة المجانية على هذا الجهاز', 'err.OFFLINE': 'لا يوجد اتصال بالخادم', 'err.NO_SERVER': 'رابط الخادم غير مُعدّ', 'err.WAIT': 'انتظر قليلاً', 'err.AUTH': 'سجّل الدخول أولاً', 'err.FORBIDDEN': 'لا تملك الصلاحية', 'err.LICENSE_LOCKED': 'التطبيق مقفل — الترخيص غير صالح', 'err.EXPIRED': 'انتهى الاشتراك', 'err.REVOKED': 'تم إلغاء الترخيص',
+  'err.NO_SERVER': 'خدمة الحسابات غير مضبوطة بعد — ضع رابط الخادم من الإعدادات ← الحساب', 'err.OFFLINE': 'لا يوجد اتصال بالإنترنت أو الخادم لا يستجيب', 'err.BAD_URL': 'الرابط غير صحيح', 'err.USERNAME_TAKEN': 'اسم المستخدم مستخدم', 'err.EMAIL_TAKEN': 'البريد مستخدم', 'err.BAD_CODE': 'الرمز غير صحيح أو منتهٍ', 'err.CODE_USED': 'الرمز مستخدم سابقاً', 'err.TRIAL_USED': 'استُهلكت التجربة المجانية على هذا الجهاز', 'err.OFFLINE': 'لا يوجد اتصال بالخادم', 'err.NO_SERVER': 'رابط الخادم غير مُعدّ', 'err.WAIT': 'انتظر قليلاً', 'err.AUTH': 'سجّل الدخول أولاً', 'err.FORBIDDEN': 'لا تملك الصلاحية', 'err.LICENSE_LOCKED': 'التطبيق مقفل — الترخيص غير صالح', 'err.EXPIRED': 'انتهى الاشتراك', 'err.REVOKED': 'تم إلغاء الترخيص',
   pwmismatch: 'كلمتا المرور غير متطابقتين', need_terms: 'يجب الموافقة على الشروط', fill: 'أكمل الحقول المطلوبة'
 }, {
   'welcome.sub': 'Clinic bookings & reminders', skip: 'Skip — free 14-day trial', haveCode: 'I have an activation code', haveAcc: 'I already have an account', create: 'Create account', login: 'Sign in', forgot: 'Forgot password?',
@@ -25,7 +25,7 @@ CD.addDict({
   buy: 'Buy / renew', activate: 'Activate', actcode: 'Activation code', 'act.needLogin': 'Sign in first to redeem a code.',
   'pick.title': 'Who is using the app?', pin: 'PIN', enter: 'Enter', newpass: 'New password', oldpass: 'Current password', 'force.title': 'You must change the temporary password', recover: 'Reset password', 'recover.sub': 'We will email you a code.', send: 'Send',
   'err.BAD_LOGIN': 'Wrong credentials', 'err.LOCKED': 'Too many attempts, try later', 'err.BANNED': 'Account suspended', 'err.DEVICE_LIMIT': 'Device limit reached for this account', 'err.BAD_USERNAME': 'Username: 3–24 letters/digits', 'err.BAD_EMAIL': 'Invalid email', 'err.WEAK_PASSWORD': 'Password needs 8+ characters',
-  'err.USERNAME_TAKEN': 'Username taken', 'err.EMAIL_TAKEN': 'Email already used', 'err.BAD_CODE': 'Wrong or expired code', 'err.CODE_USED': 'Code already used', 'err.TRIAL_USED': 'Free trial already used on this device', 'err.OFFLINE': 'Cannot reach the server', 'err.NO_SERVER': 'Server URL not configured', 'err.WAIT': 'Please wait a moment', 'err.AUTH': 'Sign in first', 'err.FORBIDDEN': 'Not allowed', 'err.LICENSE_LOCKED': 'App locked — licence invalid', 'err.EXPIRED': 'Subscription ended', 'err.REVOKED': 'Licence revoked',
+  'err.NO_SERVER': 'The account service is not configured yet — set the server address in Settings → Account', 'err.OFFLINE': 'No internet connection or the server is not responding', 'err.BAD_URL': 'Invalid address', 'err.USERNAME_TAKEN': 'Username taken', 'err.EMAIL_TAKEN': 'Email already used', 'err.BAD_CODE': 'Wrong or expired code', 'err.CODE_USED': 'Code already used', 'err.TRIAL_USED': 'Free trial already used on this device', 'err.OFFLINE': 'Cannot reach the server', 'err.NO_SERVER': 'Server URL not configured', 'err.WAIT': 'Please wait a moment', 'err.AUTH': 'Sign in first', 'err.FORBIDDEN': 'Not allowed', 'err.LICENSE_LOCKED': 'App locked — licence invalid', 'err.EXPIRED': 'Subscription ended', 'err.REVOKED': 'Licence revoked',
   pwmismatch: 'Passwords do not match', need_terms: 'You must accept the terms', fill: 'Fill the required fields'
 });
 CD.addDict({
@@ -43,7 +43,7 @@ const Auth = CD.Auth = {};
 const root = () => $('#screen');
 const fld = (label, input) => h('label.fld', h('span', label), input);
 const inp = (type = 'text', ph = '', extra = {}) => h('input.in', { type, placeholder: ph, autocomplete: 'off', ...extra });
-const logo = () => h('div', { style: { textAlign: 'center' } }, h('div', { style: { fontSize: '30px', fontWeight: 700, color: 'var(--acc)' } }, 'CareDesk'), h('div.dim', t('welcome.sub')), h('div.dim', { style: { fontSize: '11px' } }, 'v0.1.0-beta.1'));
+const logo = () => h('div', { style: { textAlign: 'center' } }, h('div', { style: { fontSize: '30px', fontWeight: 700, color: 'var(--acc)' } }, 'CareDesk'), h('div.dim', t('welcome.sub')), h('div.dim', { style: { fontSize: '11px' } }, 'v0.1.0-beta.2'));
 const { PRICES: TP, TIERS: TT } = window.CD_PLANS;
 const FEATS = (tier) => { const e = TT[tier]; return [
   [true, t('f.core')], [true, t('f.pc').replace('{n}', e.pc)], [e.android > 0, t('f.android')], [true, t('f.sec').replace('{n}', e.secretaries >= 99 ? t('f.unl') : e.secretaries)],
@@ -61,7 +61,7 @@ const plansRow = () => {
     h('small.dim', { style: { textAlign: 'center' } }, t('trialNote'))); draw(); return box; };
 const site = async () => { const i = await CD.sys('info'); return i.site; };
 const buyBtn = () => h('button.btn', { onclick: async () => CD.sys('open', await site()) }, ic('link', 's'), t('buy'));
-const footer = () => !CD.PAID ? h('div.dim', { style: { textAlign: 'center', fontSize: '12px' } }, t('cm.free')) : h('div.dim', { style: { textAlign: 'center', fontSize: '12px' } }, h('a.clk', { onclick: async () => CD.sys('open', await site()), style: { color: 'var(--acc)' } }, 'Hasn · hasn2mr.pages.dev'));
+const footer = () => !CD.PAID ? h('div.dim', { style: { textAlign: 'center', fontSize: '12px' } }, t('cm.free')) : h('div.dim', { style: { textAlign: 'center', fontSize: '12px' } }, h('a.clk', { onclick: async () => CD.sys('open', await site()), style: { color: 'var(--acc)' } }, 'Elaph Adnan'));
 const oauthBtns = () => ['google', 'microsoft'].map((p) => h('button.btn', { onclick: () => CD.toast(t('oauth.soon')) }, t(p)));
 const shell = (...kids) => CD.mount(root(), h('.auth', h('.card', ...kids)));
 

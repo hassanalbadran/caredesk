@@ -119,7 +119,7 @@ test('alerts list licences expiring within 7 days; unsubscribe only affects prom
 test('error reports are deduplicated, bad codes rejected, notices published to the app', () => {
   const g = boot(); const tok = g.run('hmacTok')({ admin: true }, 3600000);
   assert.strictEqual(g.api('report', { code: 'nope' }).code, 'BAD_REPORT');
-  g.api('report', { code: 'E102', desc: 'x', account: 'gina', version: '0.1.0-beta.1', count: 1 }); g.api('report', { code: 'E102', desc: 'x', account: 'gina', version: '0.1.0-beta.1', count: 2 });
+  g.api('report', { code: 'E102', desc: 'x', account: 'gina', version: '0.1.0-beta.2', count: 1 }); g.api('report', { code: 'E102', desc: 'x', account: 'gina', version: '0.1.0-beta.2', count: 2 });
   const rows = g.adm('adm_errors', tok, false); assert.strictEqual(rows.length, 1); assert.strictEqual(Number(rows[0].count), 3);
   g.adm('adm_handleError', tok, rows[0].id, true); assert.strictEqual(g.adm('adm_errors', tok, true).length, 0);
   assert.ok(g.adm('adm_errorCatalog', tok).some((c) => c.code === 'E901'));

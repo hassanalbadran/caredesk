@@ -1,6 +1,6 @@
 'use strict';
 const { contextBridge, ipcRenderer } = require('electron');
-const ALLOWED_ON = new Set(['license:changed', 'notify', 'scan']);
+const ALLOWED_ON = new Set(['license:changed', 'notify', 'scan', 'diag:open']);
 contextBridge.exposeInMainWorld('cd', {
   call: (method, args) => ipcRenderer.invoke('cd:call', method, args),
   cloud: (action, args) => ipcRenderer.invoke('cd:cloud', action, args),

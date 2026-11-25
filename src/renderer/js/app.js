@@ -24,7 +24,7 @@ CD.layout = () => {
       h('button.wb.x', { 'data-tip': t('closeApp'), onclick: () => CD.sys('win', { op: 'close' }), html: ic('x', 's') })),
     h('.body', h('nav.rail#rail', NAV.filter(([, , p]) => !p || CD.perms.includes(p)).map(([k, i]) => h('button', { id: 'nav-' + k, 'data-tip': t('nav.' + k), onclick: () => CD.go(k), html: ic(i) })), h('.sp'),
       h('button', { 'data-tip': t('logout'), onclick: CD.logout, html: ic('logout') })), h('main#main')),
-    h('.foot', h('span#foot-user'), h('.sp'), h('span#foot-note'), h('span', 'CareDesk v0.1.0-beta.1')));
+    h('.foot', h('span#foot-user'), h('.sp'), h('span#foot-note'), h('span', 'CareDesk v0.1.0-beta.2')));
   CD.renderMeta();
 };
 CD.renderMeta = () => {

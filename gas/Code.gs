@@ -8,7 +8,7 @@
  * Admin page:  <exec-url>?page=admin   (password + e-mail code to the owner's Gmail)
  */
 const TRIAL_DAYS = 14, DAY = 86400000, APP_VERSION_KEY = 'LATEST';
-const SITE = 'https://hasn2mr.pages.dev/';
+const SITE = 'https://github.com/hassanalbadran/caredesk';
 const SCHEMA = {
   Accounts: ['id', 'username', 'email', 'phone', 'passHash', 'salt', 'promo', 'status', 'emailVerified', 'seatsPc', 'seatsAndroid', 'createdAt', 'lastLoginAt', 'lang', 'notes', 'tempPass', 'avatar'],
   SubAccounts: ['subId', 'accountId', 'passHash', 'salt', 'role', 'perms', 'active', 'tempPass', 'createdAt'],
@@ -309,7 +309,7 @@ function adm_tempPassword(tok, id, subId) {
 function adm_createSub(tok, id, short, role, perms) {
   adminGuard(tok); const a = accountBy(id); const clean = String(short).toLowerCase().replace(/[^a-z0-9_.]/g, ''); if (clean.length < 2) throw new Error('BAD_NAME');
   const subId = clean + '@hasn.mr'; if (all('SubAccounts').some((s) => s.subId === subId)) throw new Error('EXISTS');
-  const pw = tempPw(), salt = Utilities.getUuid(); add('SubAccounts', { subId: subId, accountId: a.id, passHash: hashPw(pw, salt), salt: salt, role: role || 'secretary', perms: JSON.stringify(perms || []), active: 1, tempPass: true, createdAt: Date.now() });
+  const pw = tempPw(), salt = Utilities.getUuid(); add('SubAccounts', { subId: subId, accountId: a.id, passHash: hashPw(pw, salt), salt: salt, role: role === 'admin' ? 'admin' : 'secretary', perms: JSON.stringify(perms || []), active: 1, tempPass: true, createdAt: Date.now() });
   log('admin', 'create-sub', subId); return { subId: subId, password: pw };
 }
 function adm_codes(tok) { adminGuard(tok); return all('Codes').reverse().slice(0, 300); }

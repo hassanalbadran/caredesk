@@ -71,9 +71,11 @@ window.CD_PLANS = {
    "cancel_session",
    "settings_look",
    "manage_settings",
+   "manage_staff",
    "backup",
    "import_export",
-   "diagnostics"
+   "diagnostics",
+   "view_audit"
   ],
   "manager": [
    "view_today",

@@ -60,6 +60,9 @@ const onErr = (msg) => {
   if (errTimes.length >= 4 && !document.querySelector('dialog[open]')) { errTimes = []; const seen = getSeen(); if (!seen.ui || now - seen.ui > 6 * 3600e3) { seen.ui = now; setSeen(seen); prompt(t('dg.auto.title'), t('dg.errs'), async () => { await CD.try(async () => { await CD.sys('diagnose', { fix: true }); CD.toast(t('dg.fixed')); }); }); } }
 };
 window.addEventListener('error', (e) => onErr(e.message)); window.addEventListener('unhandledrejection', (e) => onErr('Promise: ' + (e.reason && e.reason.message || e.reason)));
-window.addEventListener('keydown', (e) => { if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) { e.preventDefault(); if (!document.querySelector('dialog[open]')) CD.diagPanel(); } });
+let lastOpen = 0; const openDiag = () => { if (Date.now() - lastOpen < 600 || document.querySelector('dialog[open]')) return; lastOpen = Date.now(); CD.diagPanel(); };
+// e.code (physical key) so it also works with the Arabic keyboard layout; main also forwards the shortcut as 'diag:open'
+window.addEventListener('keydown', (e) => { if (e.ctrlKey && e.shiftKey && !e.altKey && (e.code === 'KeyD' || /^d$/i.test(e.key))) { e.preventDefault(); openDiag(); } });
+if (window.cd && window.cd.on) window.cd.on('diag:open', openDiag);
 const baseEnter = CD.enterApp; CD.enterApp = async (...a) => { await baseEnter(...a); setTimeout(CD.autoDiagnose, 4000); setInterval(CD.autoDiagnose, 20 * 60000); };
 })();

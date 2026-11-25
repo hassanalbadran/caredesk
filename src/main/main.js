@@ -21,9 +21,11 @@ function dataDir() {
   try { fs.mkdirSync(pref, { recursive: true }); fs.accessSync(pref, fs.constants.W_OK); return pref; } catch { const d = path.join(app.getPath('userData'), 'data'); fs.mkdirSync(d, { recursive: true }); return d; }
 }
 let win, db, svc, lic, fpInfo, actor = null, importCache = null, rep = null, devUntil = 0, devFails = 0, devLockUntil = 0;
-const DEV_HASH = '55454f516345f0f42e5d1622229c688184e1ab0d93c7e2be05ac4548dae2bb96'; // sha256('cd-dev-v1:' + code); the code itself is never stored
+let phoneInst = null; const phone = () => phoneInst || (phoneInst = require('./phonelink').create({ svc, redact: require('../core/service').redactMoney, onEvent: (k, ip) => { try { svc._log({ name: 'Phone' }, 'phone.' + k, 'ip', null, { ip }); } catch { /* ignore */ } } }));
+const GAS = () => cfg.gasUrl || String((db && db.settings && db.settings().gasUrl) || ''); // config wins; else the address saved from Settings
+const DEV_HASH = 'e48d2866776284d1a08812a4bca3af39c9cf2deea37bb6e00cad136f214524e1'; // sha256('cd-dev-v1:' + code); the code itself is never stored
 const report = (code, desc, solved = false) => { try { const c = diag.byCode(code); rep && rep.add({ code, name: c.name, desc: desc || c.en, solved, account: (cache.account && cache.account.username) || (actor && actor.name) || '' }); flushReports(); } catch { /* ignore */ } };
-const flushReports = () => { if (!rep || !cfg.gasUrl) return; rep.flush(async (e) => { const r = await cloud.post(cfg.gasUrl, { action: 'report', code: e.code, name: e.name, desc: e.desc, solved: e.solved, account: e.account, version: e.version, count: e.count, ts: e.ts, fp: fpInfo && fpInfo.fp }); return !!(r && r.ok); }); };
+const flushReports = () => { if (!rep || !GAS()) return; rep.flush(async (e) => { const r = await cloud.post(GAS(), { action: 'report', code: e.code, name: e.name, desc: e.desc, solved: e.solved, account: e.account, version: e.version, count: e.count, ts: e.ts, fp: fpInfo && fpInfo.fp }); return !!(r && r.ok); }); };
 const cache = { account: null };
 const emit = (ch, ...a) => { if (win && !win.isDestroyed()) win.webContents.send(ch, ...a); };
 
@@ -41,7 +43,7 @@ async function heartbeat(force) {
   if (!PAID) return;
   if (!force && !lic.needsCheck(cfg.heartbeatHours * 3600000 || 21600000)) return;
   const prov = lic.blob && lic.blob.provisional ? lic.blob.provisional.startedAt : undefined;
-  const res = await cloud.post(cfg.gasUrl, { action: 'check', ...devInfo(), provisionalStart: prov });
+  const res = await cloud.post(GAS(), { action: 'check', ...devInfo(), provisionalStart: prov });
   if (res.offline) return;
   lic.applyServer(res); emit('license:changed', licStatus());
 }
@@ -61,7 +63,7 @@ ipcMain.handle('cd:call', wrap((method, args) => {
   if (method === 'logout') { actor = null; return true; }
   if (method === 'autoLogin') { // first run / single staff without PIN => straight in; otherwise renderer shows the picker
     const list = db.all('SELECT id,name,code_hash FROM secretaries WHERE active=1 ORDER BY id');
-    if (!list.length) { actor = localActor('Admin', 'manager'); return { ok: true }; }
+    if (!list.length) { actor = localActor('Admin', 'admin'); return { ok: true }; }
     if (list.length === 1 && !list[0].code_hash) { actor = { id: list[0].id, name: list[0].name }; return { ok: true }; }
     return { ok: false, pick: list.map((s) => ({ id: s.id, name: s.name })) };
   }
@@ -76,12 +78,12 @@ const CLOUD_PLAIN = new Set(['register', 'verifyEmail', 'resendCode', 'forgot', 
 ipcMain.handle('cd:cloud', wrap(async (action, args = {}) => {
   const body = { action, ...args, lang: db.settings().lang };
   if (!CLOUD_PLAIN.has(action)) { Object.assign(body, devInfo()); if (cache.account && cache.account.session && !body.session) body.session = cache.account.session; }
-  const res = await cloud.post(cfg.gasUrl, body);
+  const res = await cloud.post(GAS(), body);
   if (res.ok && action === 'login') {
     cache.account = { ...res.account, session: res.session, sub: res.sub }; db.setSetting('account', cache.account);
     if (res.token) lic.applyServer(res);
-    const name = res.sub ? res.sub.id.split('@')[0] : res.account.username; actor = localActor(name, res.sub ? res.sub.role : 'manager', res.sub ? res.sub.perms : []);
-    db.run('UPDATE secretaries SET role=? WHERE id=?', res.sub ? res.sub.role : 'manager', actor.id);
+    const name = res.sub ? res.sub.id.split('@')[0] : res.account.username; const role = res.sub && res.sub.role === 'secretary' ? 'secretary' : 'admin'; actor = localActor(name, role, res.sub ? res.sub.perms : []);
+    db.run('UPDATE secretaries SET role=? WHERE id=?', role, actor.id);
   } else if (res.ok && ['trialStart', 'redeem'].includes(action) && res.token) lic.applyServer(res);
   else if (res.ok && action === 'verifyEmail' && cache.account) { cache.account.emailVerified = true; db.setSetting('account', cache.account); }
   else if (!res.ok && res.code && !res.offline) { if (['TRIAL_USED', 'EXPIRED', 'REVOKED', 'DEVICE_LIMIT', 'BANNED'].includes(res.code)) lic.applyServer(res); }
@@ -92,6 +94,11 @@ ipcMain.handle('cd:cloud', wrap(async (action, args = {}) => {
 
 // ---- system helpers ----------------------------------------------------------------------
 const SYS = {
+  phoneStatus: () => phone().status(),
+  phoneSet: async ({ enabled, port }) => { const pl = phone(); db.setSetting('s.phoneLink', { enabled: !!enabled, port: Number(port) || 8765 }); if (enabled) await pl.start(Number(port) || 8765); else await pl.stop(); return pl.status(); },
+  phonePin: () => phone().newPin(),
+  serverInfo: () => ({ url: GAS(), fixed: !!cfg.gasUrl }),
+  setServer: ({ url }) => { if (cfg.gasUrl) throw Object.assign(new Error('FIXED'), { code: 'FIXED' }); const u = String(url || '').trim(); if (u && !/^https:\/\/script\.google(usercontent)?\.com\/[\w\/.-]+$/.test(u)) throw Object.assign(new Error('BAD_URL'), { code: 'BAD_URL' }); db.setSetting('s.gasUrl', u); return { url: u }; },
   devUnlock: ({ code }) => {
     if (Date.now() < devLockUntil) return { ok: false, locked: true };
     const ok = crypto.createHash('sha256').update('cd-dev-v1:' + String(code || '')).digest('hex') === DEV_HASH;
@@ -117,7 +124,7 @@ const SYS = {
     const file = path.join(require('os').tmpdir(), 'CareDesk-Setup-update.exe'); fs.writeFileSync(file, Buffer.from(await r.arrayBuffer())); return { file };
   },
   installUpdate: ({ file }) => { if (path.basename(file || '') !== 'CareDesk-Setup-update.exe') throw new Error('BAD_FILE'); shell.openPath(path.join(require('os').tmpdir(), 'CareDesk-Setup-update.exe')); quitting = true; setTimeout(() => app.quit(), 600); return true; },
-  notices: async () => { if (!cfg.gasUrl) return { ok: false, code: 'NO_SERVER' }; return cloud.post(cfg.gasUrl, { action: 'notices' }, 10000); },
+  notices: async () => { if (!GAS()) return { ok: false, code: 'NO_SERVER' }; return cloud.post(GAS(), { action: 'notices' }, 10000); },
   edition: () => ({ paid: PAID, version: app.getVersion(), site: cfg.site, repo: cfg.githubRepo || '' }),
   heartbeat: async () => { await heartbeat(true); return licStatus(); },
   account: () => cache.account && { username: cache.account.username, email: cache.account.email, emailVerified: cache.account.emailVerified, sub: cache.account.sub },
@@ -163,7 +170,7 @@ const SYS = {
   pickImage: async () => { const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg', 'svg', 'webp'] }] }); if (r.canceled) return null; const f = r.filePaths[0]; const buf = fs.readFileSync(f); if (buf.length > 2e6) throw new Error('IMAGE_TOO_LARGE'); const ext = path.extname(f).slice(1).toLowerCase().replace('jpg', 'jpeg').replace('svg', 'svg+xml'); return `data:image/${ext};base64,${buf.toString('base64')}`; },
   eclinicProbe: ({ path: p }) => eclinic.probe(p), eclinicAutoMap: ({ columns }) => eclinic.autoMap(columns),
   eclinicQuery: ({ q, limit }) => { const s = db.settings().eclinic; if (!s.enabled || !s.path) return []; return eclinic.query(s, { q, limit }); },
-  latest: async () => { const r = await cloud.post(cfg.gasUrl, { action: 'latest' }); return { ...r, current: pkg.version }; },
+  latest: async () => { const r = await cloud.post(GAS(), { action: 'latest' }); return { ...r, current: pkg.version }; },
   win: ({ op }) => { if (op === 'min') win.minimize(); else if (op === 'max') win.isMaximized() ? win.unmaximize() : win.maximize(); else if (op === 'close') win.close(); return win.isMaximized(); }
 };
 const NEED_LICENSE = new Set(['whatsapp', 'print', 'exportBackup', 'importBackup', 'eclinicQuery', 'eclinicProbe', 'pickImage']);
@@ -189,7 +196,7 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => { if (ALLOWED_EXTERNAL.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   // developer tools only through the code-protected panel: native shortcuts are blocked, any other opening is closed and reported
-  win.webContents.on('before-input-event', (e, i) => { const k = String(i.key || '').toLowerCase(); if (i.type === 'keyDown' && (k === 'f12' || (i.control && i.shift && ['i', 'j', 'c'].includes(k)))) { e.preventDefault(); if (win.webContents.isDevToolsOpened() && Date.now() > devUntil) win.webContents.closeDevTools(); } });
+  win.webContents.on('before-input-event', (e, i) => { const k = String(i.key || '').toLowerCase(); if (i.type === 'keyDown' && i.control && i.shift && !i.alt && i.code === 'KeyD') { e.preventDefault(); emit('diag:open'); return; } if (i.type === 'keyDown' && (k === 'f12' || (i.control && i.shift && ['i', 'j', 'c'].includes(k)))) { e.preventDefault(); if (win.webContents.isDevToolsOpened() && Date.now() > devUntil) win.webContents.closeDevTools(); } });
   win.webContents.on('devtools-opened', () => { if (Date.now() > devUntil) { try { win.webContents.closeDevTools(); } catch { /* ignore */ } report('E802', 'devtools opened outside the unlock flow'); } });
   win.webContents.on('render-process-gone', (_e, d) => report('E901', 'renderer process gone: ' + (d && d.reason)));
   win.loadFile(path.join(__dirname, '../renderer/index.html'));
@@ -210,6 +217,7 @@ function verifyIntegrity() {
 }
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 app.whenReady().then(() => {
+  setTimeout(() => { try { const pl = db.settings().phoneLink; if (pl && pl.enabled) phone().start(pl.port).catch(() => {}); } catch { /* ignore */ } }, 3000);
   Menu.setApplicationMenu(null);
   session.defaultSession.webRequest.onHeadersReceived((d, cb) => cb({ responseHeaders: { ...d.responseHeaders, 'Content-Security-Policy': ["default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"] } }));
   session.defaultSession.setPermissionRequestHandler((_w, _p, cb) => cb(false));

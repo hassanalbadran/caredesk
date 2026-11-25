@@ -13,7 +13,7 @@ CD.termsDialog = () => CD.dialog({ title: t('cm.terms'), cls: 'sm', body: h('ol'
 CD.thanksDialog = () => CD.dialog({ title: t('cm.thanksT'), cls: 'sm', body: h('p', { style: { margin: 0, lineHeight: 1.8 } }, t('cm.thanks')), foot: (close) => h('button.btn.pri', { onclick: () => close() }, t('cm.agree')) });
 CD.Auth.welcomeFree = () => {
   const root = document.querySelector('#app'); const go = () => { localStorage.setItem('cd.welcomed', '1'); CD.afterAuth(); };
-  const logo = h('div', { style: { textAlign: 'center' } }, h('div', { style: { fontSize: '34px', fontWeight: 700, color: 'var(--acc)' } }, 'CareDesk'), h('div.dim', 'v0.1.0-beta.1'));
+  const logo = h('div', { style: { textAlign: 'center' } }, h('div', { style: { fontSize: '34px', fontWeight: 700, color: 'var(--acc)' } }, 'CareDesk'), h('div.dim', 'v0.1.0-beta.2'));
   CD.mount(root, h('.auth', h('.card', logo, h('p', { style: { margin: 0, textAlign: 'center' } }, t('cm.intro')),
     h('button.btn.pri', { onclick: go }, t('cm.start')), h('small.dim', { style: { textAlign: 'center' } }, t('cm.optional')),
     h('.row', h('button.btn', { style: { flex: 1 }, onclick: CD.Auth.login }, t('haveAcc')), h('button.btn', { style: { flex: 1 }, onclick: CD.Auth.register }, t('create'))),

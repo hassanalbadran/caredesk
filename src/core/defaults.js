@@ -51,11 +51,11 @@ const DEFAULT_TAGS = [
   { name: 'VIP', name_en: 'VIP', tone: 'pos', effect: 'vip', system: 1, color: '#4a7fb5' },
   { name: 'إدامة', name_en: 'Maintenance', tone: 'pos', effect: 'maintenance', system: 1, color: '#7b6bb5' }
 ];
-const ROLES = ['secretary', 'admin', 'manager', 'god'];
+const ROLES = ['secretary', 'admin']; // legacy 'manager'/'god' are migrated to 'admin'
 const PERMS = ['view_today', 'mark_attendance', 'add_patient', 'edit_patient', 'delete_patient', 'view_calendar', 'view_stats', 'use_tools', 'print', 'view_income', 'reschedule', 'cancel_session', 'settings_look', 'manage_settings', 'manage_staff', 'backup', 'import_export', 'diagnostics', 'view_audit'];
 const ROLE_PERMS = {
   secretary: ['view_today', 'mark_attendance', 'add_patient', 'edit_patient', 'reschedule', 'view_calendar', 'use_tools', 'print', 'settings_look'],
-  admin: PERMS.filter((p) => !['manage_staff', 'view_audit'].includes(p)),
-  manager: PERMS, god: PERMS
+  admin: PERMS,
+  manager: PERMS, god: PERMS // legacy aliases (kept so old data/tokens still resolve)
 };
 module.exports = { DEFAULTS, DEFAULT_TAGS, ROLES, PERMS, ROLE_PERMS };
