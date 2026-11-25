@@ -1,0 +1,62 @@
+'use strict';
+// Self-diagnosis and safe auto-repair. Rules: (1) a snapshot of the database is taken BEFORE any change, (2) repairs never delete patients,
+// sessions or payments — they only fix status/links/derived values, (3) everything unfixable is reported with a code and a plain instruction.
+const fs = require('fs'); const path = require('path');
+const { toMin, fromMin } = require('./util');
+// Error-code catalog (also mirrored in the admin dashboard "Errors" tab; keep ids stable).
+const CATALOG = [
+  { code: 'E101', name: 'DB_INTEGRITY_FAILED', sev: 'critical', auto: false, ar: 'قاعدة البيانات تالفة جزئياً', en: 'Database file is damaged', steps_ar: ['أغلق التطبيق وانسخ ملف قاعدة البيانات احتياطياً.', 'من الإعدادات ← الحساب والنسخ الاحتياطي استعد آخر نسخة سليمة.', 'إن تكرر الخطأ اطلب من المطوّر فحص الملف.'], steps_en: ['Close the app and copy the database file.', 'Restore the last good backup from Settings > Account & backup.', 'If it repeats, send the file to the developer.'] },
+  { code: 'E102', name: 'ORPHAN_BOOKING', sev: 'medium', auto: true, ar: 'جلسات بلا مريض', en: 'Sessions without a patient', steps_ar: ['يُلغى الحجز اليتيم تلقائياً دون حذف بياناته.'], steps_en: ['Orphan sessions are cancelled automatically, nothing is deleted.'] },
+  { code: 'E103', name: 'STALE_IN_SESSION', sev: 'low', auto: true, ar: 'جلسة عالقة «داخل الجلسة» من يوم سابق', en: 'Session stuck in progress from a past day', steps_ar: ['تُعتبر منتهية وتُسجَّل حضوراً.'], steps_en: ['Marked as finished/attended.'] },
+  { code: 'E104', name: 'DEVICE_DOUBLE_RUNNING', sev: 'medium', auto: true, ar: 'مريضان داخل الجلسة على نفس الجهاز', en: 'Two patients in session on one device', steps_ar: ['تُنهى الجلسة الأقدم تلقائياً.'], steps_en: ['The older session is finished automatically.'] },
+  { code: 'E105', name: 'BAD_TIME_RANGE', sev: 'low', auto: true, ar: 'وقت نهاية الجلسة غير صالح', en: 'Invalid session end time', steps_ar: ['يُعاد حساب النهاية من مدة نوع الجلسة.'], steps_en: ['End time is recalculated from the session type duration.'] },
+  { code: 'E106', name: 'DEVICE_OVERLAP', sev: 'medium', auto: false, ar: 'تعارض: جلستان تتداخلان على نفس الجهاز', en: 'Two sessions overlap on one device', steps_ar: ['افتح الكالندر وحرّك إحدى الجلستين بالسحب إلى ساعة أخرى.', 'أو استعمل زر «أصلح الباقي تلقائياً».'], steps_en: ['Open Home and drag one of the sessions to another hour.', 'Or use "Fix the rest automatically".'] },
+  { code: 'E107', name: 'MISSING_BARCODE', sev: 'low', auto: true, ar: 'مريض بلا رقم/باركود', en: 'Patient without code', steps_ar: ['يُولَّد رقم جديد تلقائياً.'], steps_en: ['A new code is generated.'] },
+  { code: 'E108', name: 'BAD_SETTINGS', sev: 'medium', auto: true, ar: 'إعداد غير صالح', en: 'Invalid setting value', steps_ar: ['يُرجَع الإعداد التالف فقط إلى قيمته الافتراضية.'], steps_en: ['Only the broken setting is reset to default.'] },
+  { code: 'E109', name: 'DANGLING_TAG', sev: 'low', auto: true, ar: 'وسم محذوف ما زال مرتبطاً بمريض', en: 'Deleted tag still linked', steps_ar: ['يُحذف الارتباط فقط.'], steps_en: ['Only the link is removed.'] },
+  { code: 'E110', name: 'DANGLING_DEVICE', sev: 'low', auto: true, ar: 'جلسة مرتبطة بجهاز محذوف', en: 'Session linked to a deleted device', steps_ar: ['يُفصل الجهاز عن الجلسة وتبقى الجلسة.'], steps_en: ['The device is unlinked; the session stays.'] },
+  { code: 'E113', name: 'BAD_TIMER', sev: 'low', auto: true, ar: 'مؤقت بقيمة غير صالحة', en: 'Timer has an invalid value', steps_ar: ['يُصفَّر المؤقت.'], steps_en: ['The timer is reset.'] },
+  { code: 'E114', name: 'BAD_PRICE', sev: 'low', auto: true, ar: 'سعر غير صالح', en: 'Invalid price', steps_ar: ['يُفرَّغ السعر ويُملأ من سعر النوع.'], steps_en: ['Price is cleared and refilled from the session type.'] },
+  { code: 'E115', name: 'NOTIFICATION_BLOAT', sev: 'low', auto: true, ar: 'إشعارات قديمة كثيرة', en: 'Too many old notifications', steps_ar: ['تُحذف الإشعارات المنتهية الأقدم من 30 يوماً فقط.'], steps_en: ['Only resolved notifications older than 30 days are pruned.'] },
+  { code: 'E801', name: 'TAMPER_FILES', sev: 'critical', auto: false, ar: 'ملفات التطبيق عُدِّلت', en: 'Application files were modified', steps_ar: ['أعد تثبيت التطبيق من المصدر الرسمي.', 'بياناتك لا تتأثر بإعادة التثبيت.'], steps_en: ['Reinstall the app from the official source.', 'Your data is not affected by reinstalling.'] },
+  { code: 'E802', name: 'DEVTOOLS_BYPASS', sev: 'high', auto: false, ar: 'محاولة فتح أدوات المطوّر دون إذن', en: 'Unauthorised developer-tools attempt', steps_ar: ['أُغلقت الأدوات تلقائياً وسُجّلت المحاولة.'], steps_en: ['Tools were closed and the attempt logged.'] },
+  { code: 'E803', name: 'PERMISSION_BYPASS', sev: 'high', auto: false, ar: 'محاولة تنفيذ إجراء بلا صلاحية', en: 'Action attempted without permission', steps_ar: ['رُفض الإجراء وسُجّلت المحاولة في سجل النشاط.', 'راجع سجل النشاط لمعرفة الحساب.'], steps_en: ['The action was refused and logged in the activity log.', 'Check the activity log for the account.'] },
+  { code: 'E901', name: 'UI_EXCEPTION', sev: 'medium', auto: false, ar: 'خطأ غير متوقع في الواجهة', en: 'Unexpected interface error', steps_ar: ['اضغط «فحص وإصلاح» أو Ctrl+Shift+D.', 'إن تكرر أعد تشغيل التطبيق.'], steps_en: ['Press "Scan & repair" or Ctrl+Shift+D.', 'If it repeats, restart the app.'] },
+  { code: 'E902', name: 'UNHANDLED_PROMISE', sev: 'medium', auto: false, ar: 'عملية فشلت دون معالجة', en: 'Unhandled failed operation', steps_ar: ['اضغط «فحص وإصلاح».'], steps_en: ['Press "Scan & repair".'] },
+  { code: 'E903', name: 'CALL_FAILED', sev: 'medium', auto: false, ar: 'فشل استدعاء داخلي', en: 'Internal call failed', steps_ar: ['اضغط «فحص وإصلاح» ثم أعد المحاولة.'], steps_en: ['Press "Scan & repair" and retry.'] },
+  { code: 'E904', name: 'UPDATE_FAILED', sev: 'low', auto: false, ar: 'فشل تنزيل التحديث', en: 'Update download failed', steps_ar: ['تحقق من الإنترنت وأعد المحاولة من الإعدادات ← حول.'], steps_en: ['Check the internet and retry from Settings > About.'] }
+];
+const byCode = (c) => CATALOG.find((x) => x.code === c) || { code: c, name: 'UNKNOWN', sev: 'medium', auto: false, ar: 'خطأ غير معروف', en: 'Unknown error', steps_ar: [], steps_en: [] };
+function snapshot(db, dir) { // data-safe copy before any repair (VACUUM INTO produces a consistent file); keep the last 5
+  if (!dir) return null; fs.mkdirSync(dir, { recursive: true }); const f = path.join(dir, 'before-repair-' + Date.now() + '.db'); db.h.exec(`VACUUM INTO '${f.replace(/'/g, "''")}'`);
+  const all = fs.readdirSync(dir).filter((x) => x.startsWith('before-repair-')).sort(); for (const old of all.slice(0, -5)) { try { fs.unlinkSync(path.join(dir, old)); } catch { /* ignore */ } } return f;
+}
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+// run(): scan; with fix=true also repairs what is safe. Returns { findings:[{code,count,fixed,detail}], snapshot, ok }
+function run(db, svc, { fix = false, snapshotDir = null, now = Date.now() } = {}) {
+  const found = []; const add = (code, count, fixed, detail) => { if (count > 0) found.push({ code, name: byCode(code).name, count, fixed: !!fixed, detail: detail || '' }); };
+  const ic = db.get('PRAGMA integrity_check'); const integ = ic && (ic.integrity_check || Object.values(ic)[0]); if (integ !== 'ok') { add('E101', 1, false, String(integ).slice(0, 200)); return { findings: found, snapshot: null, ok: false }; }
+  let snap = null; const guard = () => { if (fix && !snap) snap = snapshot(db, snapshotDir); };
+  const today = svc ? svc.today() : new Date(now).toISOString().slice(0, 10);
+  const ACT = "('booked','arrived','in_session')";
+  let r;
+  r = db.all('SELECT id FROM bookings WHERE patient_id NOT IN (SELECT id FROM patients) AND status!=\'cancelled\''); if (r.length && fix) { guard(); db.run("UPDATE bookings SET status='cancelled' WHERE patient_id NOT IN (SELECT id FROM patients)"); } add('E102', r.length, fix);
+  r = db.all("SELECT id FROM bookings WHERE status='in_session' AND date<?", today); if (r.length && fix) { guard(); db.run("UPDATE bookings SET status='attended',attended_at=COALESCE(attended_at,?) WHERE status='in_session' AND date<?", now, today); } add('E103', r.length, fix);
+  r = db.all("SELECT b1.id,b1.device_id FROM bookings b1 WHERE b1.status='in_session' AND b1.device_id IS NOT NULL AND EXISTS(SELECT 1 FROM bookings b2 WHERE b2.status='in_session' AND b2.device_id=b1.device_id AND (b2.timer_start>b1.timer_start OR (b2.timer_start=b1.timer_start AND b2.id>b1.id)))"); if (r.length && fix) { guard(); for (const x of r) db.run("UPDATE bookings SET status='attended',attended_at=COALESCE(attended_at,?) WHERE id=?", now, x.id); } add('E104', r.length, fix);
+  r = db.all(`SELECT b.id,b.time,b.end_time,t.duration_min FROM bookings b LEFT JOIN session_types t ON t.id=b.type_id WHERE b.status IN ${ACT}`).filter((x) => !TIME.test(x.end_time || '') || !TIME.test(x.time || '') || toMin(x.end_time) <= toMin(x.time));
+  if (r.length && fix) { guard(); for (const x of r) if (TIME.test(x.time || '')) db.run('UPDATE bookings SET end_time=? WHERE id=?', fromMin(Math.min(1439, toMin(x.time) + (x.duration_min || 30))), x.id); } add('E105', r.length, fix && r.every((x) => TIME.test(x.time || '')));
+  const ov = db.all(`SELECT a.id FROM bookings a JOIN bookings b ON a.device_id=b.device_id AND a.date=b.date AND a.id<b.id AND a.status IN ${ACT} AND b.status IN ${ACT} AND a.time<b.end_time AND b.time<a.end_time WHERE a.device_id IS NOT NULL AND a.date>=?`, today); add('E106', ov.length, false, 'device overlap');
+  r = db.all("SELECT id FROM patients WHERE barcode IS NULL OR barcode=''"); if (r.length && fix) { guard(); for (const x of r) db.run('UPDATE patients SET barcode=? WHERE id=?', 'CD' + String(x.id).padStart(6, '0'), x.id); } add('E107', r.length, fix);
+  r = db.all('SELECT patient_id,tag_id FROM patient_tags WHERE tag_id NOT IN (SELECT id FROM tags) OR patient_id NOT IN (SELECT id FROM patients)'); if (r.length && fix) { guard(); db.run('DELETE FROM patient_tags WHERE tag_id NOT IN (SELECT id FROM tags) OR patient_id NOT IN (SELECT id FROM patients)'); } add('E109', r.length, fix);
+  r = db.all('SELECT id FROM bookings WHERE device_id IS NOT NULL AND device_id NOT IN (SELECT id FROM devices)'); if (r.length && fix) { guard(); db.run('UPDATE bookings SET device_id=NULL WHERE device_id IS NOT NULL AND device_id NOT IN (SELECT id FROM devices)'); } add('E110', r.length, fix);
+  r = db.all(`SELECT id FROM bookings WHERE (timer_start IS NOT NULL AND (timer_start>? OR timer_start<=0 OR timer_min IS NULL OR timer_min<=0 OR timer_min>600)) OR (status!='in_session' AND timer_start IS NOT NULL AND date<?)`, now + 864e5, today); if (r.length && fix) { guard(); for (const x of r) db.run('UPDATE bookings SET timer_start=NULL,timer_min=NULL WHERE id=?', x.id); } add('E113', r.length, fix);
+  r = db.all('SELECT b.id,t.price tp FROM bookings b LEFT JOIN session_types t ON t.id=b.type_id WHERE b.price IS NOT NULL AND (b.price<0 OR b.price!=b.price OR b.price>1e9)'); if (r.length && fix) { guard(); for (const x of r) db.run('UPDATE bookings SET price=? WHERE id=?', x.tp ?? null, x.id); } add('E114', r.length, fix);
+  const nb = db.get("SELECT COUNT(*) n FROM notifications WHERE resolved=1 AND ts<?", now - 30 * 864e5).n; if (nb > 0 && fix) { guard(); db.run('DELETE FROM notifications WHERE resolved=1 AND ts<?', now - 30 * 864e5); } if (db.get('SELECT COUNT(*) n FROM notifications').n > 5000 || nb > 0) add('E115', Math.max(nb, 1), fix && nb > 0);
+  // settings: only broken keys are reset
+  if (svc) { const bad = []; let s = {}; try { s = db.settings(); } catch { bad.push('*'); } const { DEFAULTS } = require('./defaults'); const hrs = s.hours || {};
+    for (let d = 0; d < 7; d++) { const h = hrs[d]; if (!h || typeof h !== 'object' || (h.on && (!TIME.test(h.open || '') || !TIME.test(h.close || '') || toMin(h.close) <= toMin(h.open)))) { bad.push('hours'); break; } }
+    if (!['system', 'dark', 'light', 'sand', 'ocean'].includes(s.theme)) bad.push('theme'); if (!['ar', 'en'].includes(s.lang)) bad.push('lang'); if (!(Number(s.fontScale) >= 0.7 && Number(s.fontScale) <= 1.6)) bad.push('fontScale');
+    if (bad.length && fix) { guard(); const patch = {}; for (const k of bad) if (k !== '*' && k in DEFAULTS) patch[k] = DEFAULTS[k]; db.saveSettings(patch); } add('E108', bad.length, fix && !bad.includes('*'), bad.join(',')); }
+  return { findings: found, snapshot: snap, ok: found.every((f) => f.fixed) };
+}
+module.exports = { CATALOG, byCode, run, snapshot };

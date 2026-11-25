@@ -1,0 +1,12 @@
+{
+  "gasUrl": "",
+  "site": "https://hasn2mr.pages.dev/",
+  "heartbeatHours": 6,
+  "paid": false,
+  "githubRepo": "",
+  "oauth": {
+    "googleClientId": "",
+    "microsoftClientId": ""
+  },
+  "integrity": "warn"
+}

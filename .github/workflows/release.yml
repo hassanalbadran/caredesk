@@ -1,0 +1,19 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+jobs:
+  win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm ci
+      - run: npm test
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npx electron-builder --win --x64 --publish never
+      - name: Publish installer to the PUBLIC releases repo (source repo stays private)
+        shell: bash
+        env: { GH_TOKEN: '${{ secrets.RELEASES_TOKEN }}' }
+        run: gh release create "${GITHUB_REF_NAME}" dist/*.exe --repo "${{ vars.RELEASES_REPO }}" --title "CareDesk ${GITHUB_REF_NAME}" --notes "CareDesk ${GITHUB_REF_NAME}"

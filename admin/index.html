@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ar">
+<head>
+  <meta charset="utf-8">
+  <title>CareDesk Admin</title>
+  <meta name="robots" content="noindex">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg: #051f20; --s1: #0b2b26; --s2: #163832; --s3: #235347; --ac: #8eb69b; --tx: #daf1de; --mut: #8eb69b99; --bad: #e07a74; --warn: #e3b45c; --ok: #5fcf9b; --r: 14px; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--tx); font: 14px/1.6 "Segoe UI", Tahoma, Arial, sans-serif; }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    
+    /* إصلاح مشكلة الكيبورد */
+    input:focus, select:focus, textarea:focus { outline: none !important; border-color: var(--ac) !important; box-shadow: 0 0 0 1px var(--ac) !important; }
+    input, select, textarea { background: var(--bg); border: 1px solid #ffffff22; border-radius: 10px; padding: 8px 10px; min-width: 0; user-select: text !important; -webkit-user-select: text !important; }
+    textarea { width: 100%; min-height: 160px; }
+    [hidden] { display: none !important; }
+    
+    /* التصميم */
+    .app { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; direction: ltr; }
+    .side { background: var(--s1); padding: 18px 12px; display: flex; flex-direction: column; gap: 6px; border-inline-end: 1px solid #ffffff10; }
+    .brand { font-weight: 800; font-size: 20px; padding: 6px 10px 16px; letter-spacing: .5px; }
+    .brand small { display: block; font-weight: 400; font-size: 11px; color: var(--mut); }
+    .nav { background: none; border: 0; color: inherit; font: inherit; text-align: start; width: 100%; cursor: pointer; padding: 10px 12px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; direction: rtl; }
+    .nav:hover { background: var(--s2); }
+    .nav.on { background: var(--s3); box-shadow: inset 0 1px 0 #ffffff18; }
+    .nav .b { background: var(--bad); color: #fff; border-radius: 99px; padding: 0 8px; font-size: 12px; }
+    main { padding: 22px 26px; direction: rtl; min-width: 0; }
+    h1 { margin: 0 0 14px; font-size: 22px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .card { background: var(--s1); border-radius: var(--r); padding: 16px; box-shadow: 0 6px 18px #0006, inset 0 1px 0 #ffffff12; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .stats .card b { display: block; font-size: 24px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 9px 10px; text-align: start; border-bottom: 1px solid #ffffff12; vertical-align: middle; }
+    th { color: var(--mut); font-weight: 600; font-size: 12px; }
+    tr.click { cursor: pointer; }
+    tr.click:hover { background: var(--s2); }
+    .btn { background: var(--s3); border: 0; border-radius: 11px; padding: 8px 14px; cursor: pointer; box-shadow: 0 3px 8px #0005, inset 0 1px 0 #ffffff1c; }
+    .btn:hover { filter: brightness(1.15); }
+    .btn.p { background: var(--ac); color: #05231d; font-weight: 700; }
+    .btn.d { background: #7a2f2b; }
+    .btn.s { padding: 4px 10px; font-size: 12px; }
+    .tag { display: inline-block; padding: 1px 9px; border-radius: 99px; font-size: 12px; background: var(--s3); }
+    .tag.ok { background: #1d5a43; }
+    .tag.bad { background: #6d2a27; }
+    .tag.warn { background: #6b5321; }
+    dialog { background: var(--s1); color: var(--tx); border: 0; border-radius: 18px; padding: 0; width: min(860px, 94vw); max-height: 90vh; box-shadow: 0 20px 60px #000a; }
+    dialog::backdrop { background: #000a; }
+    .dh { display: flex; justify-content: space-between; padding: 14px 18px; background: var(--s2); }
+    .db { padding: 18px; overflow: auto; max-height: 76vh; direction: rtl; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    label { display: block; font-size: 12px; color: var(--mut); margin-bottom: 3px; }
+    .sec { margin: 18px 0 8px; color: var(--ac); font-weight: 700; }
+    #login { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); z-index: 10; }
+    #login .card { width: 340px; display: flex; flex-direction: column; gap: 12px; direction: rtl; }
+    #otp { text-align: center; font-size: 20px; }
+    #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ac); color: #05231d; padding: 10px 18px; border-radius: 12px; display: none; z-index: 20; font-weight: 700; }
+    .mut { color: var(--mut); }
+    .code { font-family: Consolas, monospace; user-select: all; }
+  </style>
+</head>
+<body>
+  <div id="login">
+    <div class="card">
+      <div class="brand">CareDesk<small>لوحة الإدارة</small></div>
+      <div id="l0">
+        <label>رابط الخادم (/exec) — مرة واحدة</label>
+        <input id="gasu" type="text" dir="ltr" style="width:100%" placeholder="https://script.google.com/.../exec" autocomplete="off">
+      </div>
+      <div id="l1">
+        <label>كلمة مرور الإدارة</label>
+        <input id="pw" type="password" style="width:100%" autocomplete="new-password">
+        <p></p>
+        <button class="btn p" id="go1" style="width:100%">متابعة</button>
+      </div>
+      <div id="l2" hidden>
+        <label>رمز التحقق المرسل إلى بريدك (6 أرقام)</label>
+        <input id="otp" type="text" maxlength="6" style="width:100%" autocomplete="one-time-code">
+        <p></p>
+        <button class="btn p" id="go2" style="width:100%">دخول</button>
+      </div>
+      <div id="lerr" style="color:var(--bad)"></div>
+    </div>
+  </div>
+
+  <div class="app" id="app" hidden>
+    <aside class="side">
+      <div class="brand">CareDesk<small>Admin · v0.1 beta</small></div>
+      <div id="nav"></div>
+      <div style="flex:1"></div>
+      <button class="nav" id="out"><span>تسجيل الخروج</span></button>
+    </aside>
+    <main id="main"></main>
+  </div>
+
+  <dialog id="dlg">
+    <div class="dh"><b id="dt"></b><button class="btn s" id="dx">✕</button></div>
+    <div class="db" id="dbody"></div>
+  </dialog>
+  <div id="toast"></div>
+
+  <script>
+    let TOK = '';
+    const $ = (id) => document.getElementById(id);
+    
+    function h(tag, a, ...kids) {
+      const e = document.createElement(tag);
+      for (const [k, v] of Object.entries(a || {})) {
+        if (k === 'class') e.className = v;
+        else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+        else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v);
+      }
+      for (const c of kids.flat()) {
+        if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+      }
+      return e;
+    }
+
+    let GAS = '';
+    try { GAS = (localStorage.getItem('cd_gas') || '').trim(); } catch (e) {}
+    if (GAS) $('l0').hidden = true;
+    $('gasu').onchange = () => { GAS = $('gasu').value.trim(); try { localStorage.setItem('cd_gas', GAS); } catch (e) {} };
+
+    const IN_GAS = typeof google !== 'undefined' && google.script && google.script.run;
+    if (IN_GAS) $('l0').hidden = true;
+    function rpcGas(fn, ...args) {
+      return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler((e) => {
+        if (/AUTH/.test(e.message)) { toast('انتهت الجلسة'); setTimeout(() => location.reload(), 900); }
+        rej(e);
+      })[fn](...args));
+    }
+    async function rpc(fn, ...args) {
+      if (IN_GAS) return rpcGas(fn, ...args);
+      let r;
+      try {
+        const x = await fetch(GAS, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'adm', fn, args }) });
+        r = await x.json();
+      } catch (e) { throw new Error('NETWORK: ' + (e && e.message)); }
+      if (!r.ok) {
+        if (/AUTH/.test(r.error || '')) { toast('انتهت الجلسة'); setTimeout(() => location.reload(), 900); }
+        throw new Error(r.error || r.code || 'ERR');
+      }
+      return r.data;
+    }
+
+    const toast = (t) => { const e = $('toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => (e.style.display = 'none'), 2600); };
+    const fmt = (ms) => (ms ? new Date(Number(ms)).toLocaleString('ar-IQ-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
+    const daysLeft = (ms) => (ms == null ? null : Math.ceil((ms - Date.now()) / 864e5));
+    const planTag = (a) => { if (!a.plan) return h('span', { class: 'tag bad' }, 'بدون ترخيص'); const d = daysLeft(a.expAt); return h('span', { class: 'tag ' + (d != null && d <= 7 ? 'warn' : 'ok') }, a.plan + (d == null ? ' · مدى الحياة' : ' · ' + d + ' يوم')); };
+
+    function dlg(title, body) { $('dt').textContent = title; $('dbody').replaceChildren(body); if (!$('dlg').open) $('dlg').showModal(); }
+    $('dx').onclick = () => $('dlg').close();
+
+    $('go1').onclick = async () => {
+      $('lerr').textContent = '';
+      try {
+        if (!GAS) { GAS = $('gasu').value.trim(); localStorage.setItem('cd_gas', GAS); }
+        const r = await rpc('adm_login', $('pw').value);
+        if (r.ok) { $('l1').hidden = true; $('l2').hidden = false; $('otp').focus(); }
+        else { $('lerr').textContent = r.code === 'LOCKED' ? 'تم القفل مؤقتاً' : 'كلمة المرور غير صحيحة'; }
+      } catch (e) { $('lerr').textContent = 'خطأ: ' + (e.message || e); }
+    };
+
+    $('go2').onclick = async () => {
+      try {
+        const r = await rpc('adm_verify', $('otp').value);
+        if (r.ok) { TOK = r.token; $('login').hidden = true; $('app').hidden = false; boot(); }
+        else { $('lerr').textContent = 'الرمز غير صحيح'; }
+      } catch (e) { $('lerr').textContent = 'خطأ: ' + (e.message || e); }
+    };
+
+    $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('go1').click(); });
+    $('otp').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('go2').click(); });
+    $('out').onclick = () => location.reload();
+
+    const VIEWS = { accounts: ['الحسابات', vAccounts], alerts: ['التنبيهات', vAlerts], codes: ['أكواد التفعيل', vCodes], news: ['الرسائل والنشرات', vNews], backups: ['طلبات النسخ', vBackups], updates: ['التحديثات', vUpdates], log: ['السجل', vLog] };
+    let cur = 'accounts';
+
+    async function boot() {
+      const viewP = VIEWS[cur][1](); viewP.catch(() => {}); // all three server calls run in parallel (was sequential = 3x latency)
+      const [st, al] = await Promise.all([rpc('adm_stats', TOK), rpc('adm_alerts', TOK)]);
+      const nav = $('nav');
+      nav.replaceChildren(...Object.entries(VIEWS).map(([k, [t]]) => h('button', { class: 'nav' + (k === cur ? ' on' : ''), onclick: () => { cur = k; boot(); } }, h('span', {}, t), k === 'alerts' && al.length ? h('span', { class: 'b' }, al.length) : k === 'backups' && st.pendingBackups ? h('span', { class: 'b' }, st.pendingBackups) : null)));
+      const box = h('div');
+      box.append(h('div', { class: 'stats' }, ...[['الحسابات', st.accounts], ['الأجهزة', st.devices], ['تراخيص فعّالة', st.activeLicenses], ['تجارب مسجّلة', st.trials], ['رسائل متاحة اليوم', st.mailQuota]].map(([l, v]) => h('div', { class: 'card' }, h('span', { class: 'mut' }, l), h('b', {}, v)))));
+      box.append(h('h1', {}, VIEWS[cur][0]));
+      $('main').replaceChildren(box);
+      box.append(await viewP);
+    }
+
+    async function vAccounts(q = '') {
+      const wrap = h('div'); const list = h('div');
+      const s = h('input', { placeholder: 'بحث بالاسم أو البريد أو الهاتف…', style: 'min-width:280px', value: q });
+      s.addEventListener('keydown', async (e) => { if (e.key === 'Enter') list.replaceChildren(await table(s.value)); });
+      async function table(qq) {
+        const rows = await rpc('adm_accounts', TOK, qq);
+        return h('div', { class: 'card' }, h('table', {}, 
+          h('thead', {}, h('tr', {}, ...['المستخدم', 'البريد', 'الهاتف', 'الاشتراك', 'الأجهزة', 'آخر دخول', 'الحالة'].map((t) => h('th', {}, t)))),
+          h('tbody', {}, rows.map((a) => h('tr', { class: 'click', onclick: () => openAcc(a.id) }, h('td', {}, a.username), h('td', {}, a.email), h('td', {}, a.phone), h('td', {}, planTag(a)), h('td', {}, a.devices + '/' + a.seatsPc), h('td', {}, fmt(a.lastLoginAt)), h('td', {}, h('span', { class: 'tag ' + (a.status === 'active' ? 'ok' : a.status === 'banned' ? 'bad' : 'warn') }, a.status)))))
+        ), rows.length ? null : h('p', { class: 'mut' }, 'لا توجد نتائج'));
+      }
+      wrap.append(h('div', { class: 'row' }, s, h('button', { class: 'btn', onclick: async () => list.replaceChildren(await table(s.value)) }, 'بحث')));
+      list.append(await table(q)); wrap.append(list); return wrap;
+    }
+
+    async function openAcc(id) {
+      const d = await rpc('adm_account', TOK, id); const a = d.account; const f = {};
+      const inp = (k, l, t = 'text') => h('div', {}, h('label', {}, l), (f[k] = h('input', { value: a[k] ?? '', type: t, style: 'width:100%' })));
+      const tierSel = h('select', {}, h('option', { value: 'pro' }, 'Pro'), h('option', { value: 'max' }, 'Max'));
+      const act = (label, fn, cls = '') => h('button', { class: 'btn s ' + cls, onclick: async () => { try { const r = await fn(); if (r !== false) { toast('تم'); openAcc(id); boot(); } } catch (e) { toast('فشل: ' + e.message); } } }, label);
+      const body = h('div', {}, 
+        h('div', { class: 'grid2' }, inp('username', 'اسم المستخدم'), inp('email', 'البريد'), inp('phone', 'الهاتف'), inp('seatsPc', 'عدد أجهزة الحاسوب', 'number'), inp('seatsAndroid', 'عدد أجهزة الأندرويد', 'number'), h('div', {}, h('label', {}, 'الحالة'), (f.status = h('select', { style: 'width:100%' }, ...['active', 'pending_email', 'banned'].map((s) => h('option', { value: s, selected: s === a.status }, s)))))),
+        h('div', {}, h('label', {}, 'ملاحظات'), (f.notes = h('input', { value: a.notes || '', style: 'width:100%' }))), h('p'), 
+        h('div', { class: 'row' }, act('حفظ', () => rpc('adm_saveAccount', TOK, id, Object.fromEntries(Object.entries(f).map(([k, e]) => [k, e.value]))), 'p'), act('كلمة مرور مؤقتة', async () => { const pw = await rpc('adm_tempPassword', TOK, id); alert('أُرسلت إلى بريد المستخدم.\n' + pw); }), act('إرسال عرض', async () => { const s = prompt('عنوان العرض'); if (!s) return false; const t = prompt('نص العرض (خصم/ترويج)'); if (!t) return false; await rpc('adm_offer', TOK, id, s, t); })),
+        h('div', { class: 'sec' }, 'التراخيص'), h('div', { class: 'row' }, h('label', {}, 'الباقة'), tierSel, ...[['شهري', 'monthly', ''], ['سنوي', 'yearly', ''], ['مدى الحياة', 'lifetime', ''], ['مخصص (أيام)', 'custom', 'ask']].map(([l, p, ask]) => act('+ ' + l, async () => { let days = ''; if (ask) { days = prompt('عدد الأيام'); if (!days) return false; } await rpc('adm_grant', TOK, id, p, days, tierSel.value); }))),
+        h('table', {}, h('tbody', {}, d.licenses.map((l) => h('tr', {}, h('td', {}, l.plan + ' · ' + (l.tier || 'pro')), h('td', {}, l.source), h('td', {}, fmt(l.startAt)), h('td', {}, l.expAt === '' ? 'مدى الحياة' : fmt(l.expAt)), h('td', {}, String(l.active) === '0' ? h('span', { class: 'tag bad' }, 'منتهٍ') : act('إنهاء', () => rpc('adm_endLicense', TOK, l.id), 'd')))))),
+        h('div', { class: 'sec' }, 'الأجهزة'), h('table', {}, h('tbody', {}, d.devices.map((v) => h('tr', {}, h('td', {}, v.name || '—'), h('td', {}, v.platform), h('td', { class: 'mut' }, 'آخر ظهور ' + fmt(v.lastSeen)), h('td', {}, String(v.active) === '0' ? h('span', { class: 'tag bad' }, 'محذوف') : act('حذف الجهاز', () => rpc('adm_removeDevice', TOK, v.id), 'd')))))),
+        h('div', { class: 'sec' }, 'الحسابات الفرعية (name@hasn.mr)'), h('table', {}, h('tbody', {}, d.subs.map((s) => h('tr', {}, h('td', { class: 'code' }, s.subId), h('td', {}, s.role), h('td', {}, act('كلمة مرور مؤقتة', async () => { alert((await rpc('adm_tempPassword', TOK, id, s.subId))); return false; })))))),
+        h('div', { class: 'row' }, act('+ إنشاء حساب فرعي', async () => { const n = prompt('الاسم القصير (مثال: desk2)'); if (!n) return false; const role = prompt('الصلاحية: secretary | admin | manager | god', 'secretary'); const r = await rpc('adm_createSub', TOK, id, n, role, []); alert('المعرّف: ' + r.subId + '\nكلمة المرور المؤقتة: ' + r.password); }))
+      );
+      dlg(a.username, body);
+    }
+
+    async function vAlerts() {
+      const rows = await rpc('adm_alerts', TOK);
+      if (!rows.length) return h('p', { class: 'mut' }, 'لا توجد تراخيص قاربت على الانتهاء.');
+      return h('div', { class: 'card' }, h('table', {}, h('tbody', {}, rows.map((r) => h('tr', {}, h('td', {}, r.username), h('td', {}, r.plan), h('td', {}, h('span', { class: 'tag ' + (r.expired ? 'bad' : 'warn') }, r.expired ? 'منتهٍ' : daysLeft(r.expAt) + ' يوم')), h('td', {}, fmt(r.expAt)), h('td', { class: 'row' }, h('button', { class: 'btn s p', onclick: async () => { await rpc('adm_grant', TOK, r.accountId, 'monthly', '', r.tier); toast('تم التجديد شهراً'); boot(); } }, 'تجديد شهر'), h('button', { class: 'btn s', onclick: async () => { const t = prompt('نص العرض'); if (t) { await rpc('adm_offer', TOK, r.accountId, 'عرض خاص لتجديد اشتراكك', t); toast('أُرسل'); } } }, 'ترويج'), h('button', { class: 'btn s', onclick: () => openAcc(r.accountId) }, 'فتح'), h('button', { class: 'btn s d', onclick: async () => { await rpc('adm_endLicense', TOK, r.licId); boot(); } }, 'إنهاء')))))));
+    }
+
+    async function vCodes() {
+      const rows = await rpc('adm_codes', TOK);
+      const f = { tier: h('select', {}, h('option', { value: 'pro' }, 'Pro'), h('option', { value: 'max' }, 'Max')), plan: h('select', {}, ...['monthly', 'yearly', 'lifetime', 'custom'].map((p) => h('option', {}, p))), days: h('input', { placeholder: 'أيام (للمخصص)', size: 12 }), count: h('input', { type: 'number', value: 1, style: 'width:70px' }), seats: h('input', { type: 'number', value: 1, style: 'width:70px', title: 'عدد الأجهزة' }), note: h('input', { placeholder: 'ملاحظة' }) };
+      return h('div', {}, h('div', { class: 'row card' }, f.tier, f.plan, f.days, f.count, f.seats, f.note, h('button', { class: 'btn p', onclick: async () => { const r = await rpc('adm_genCode', TOK, f.plan.value, f.days.value, f.count.value, f.note.value, f.seats.value, f.tier.value); prompt('الأكواد (انسخها)', r.join('\n')); boot(); } }, 'توليد')), h('div', { class: 'card' }, h('table', {}, h('thead', {}, h('tr', {}, ...['الكود', 'الخطة', 'ملاحظة', 'الحالة'].map((t) => h('th', {}, t)))), h('tbody', {}, rows.map((c) => h('tr', {}, h('td', { class: 'code' }, c.code), h('td', {}, (c.tier || 'pro') + ' · ' + c.plan + (c.days ? ' ' + c.days + 'd' : '')), h('td', {}, c.note), h('td', {}, c.usedBy ? h('span', { class: 'tag bad' }, 'مستخدم ' + fmt(c.usedAt)) : h('span', { class: 'tag ok' }, 'متاح'))))))));
+    }
+
+    async function vNews() {
+      const rows = await rpc('adm_news', TOK); const box = h('div');
+      const edit = (n = { subject: '', body: '', kind: 'promo' }) => {
+        const s = h('input', { value: n.subject, style: 'width:100%', placeholder: 'العنوان' });
+        const k = h('select', {}, h('option', { value: 'promo', selected: n.kind === 'promo' }, 'إعلانية (يمكن إلغاؤها)'), h('option', { value: 'service', selected: n.kind === 'service' }, 'خدمة/تحديث (لا تُلغى)'));
+        const b = h('textarea', {}, n.body);
+        const save = async () => rpc('adm_saveNews', TOK, { id: n.id, subject: s.value, body: b.value, kind: k.value });
+        dlg(n.id ? 'تعديل رسالة' : 'رسالة جديدة', h('div', {}, h('label', {}, 'العنوان'), s, h('p'), h('label', {}, 'النوع'), k, h('p'), h('label', {}, 'المحتوى (أسطر جديدة مسموحة)'), b, h('p'), h('div', { class: 'row' }, h('button', { class: 'btn p', onclick: async () => { await save(); $('dlg').close(); boot(); } }, 'حفظ'), h('button', { class: 'btn', onclick: async () => { const id = await save(); n.id = id; await rpc('adm_sendNews', TOK, id, true); toast('أُرسلت تجربة إلى بريدك'); } }, 'إرسال تجربة لي'), h('button', { class: 'btn d', onclick: async () => { const id = await save(); if (confirm('إرسال إلى جميع المشتركين المؤهلين؟')) { const c = await rpc('adm_sendNews', TOK, id, false); toast('أُرسلت إلى ' + c); $('dlg').close(); boot(); } } }, 'إرسال للجميع'))));
+      };
+      box.append(h('div', { class: 'row' }, h('button', { class: 'btn p', onclick: () => edit() }, '+ رسالة جديدة')), h('div', { class: 'card' }, h('table', {}, h('tbody', {}, rows.map((n) => h('tr', { class: 'click', onclick: () => edit(n) }, h('td', {}, n.subject), h('td', {}, h('span', { class: 'tag' }, n.kind)), h('td', {}, n.sentAt ? 'أُرسلت ' + fmt(n.sentAt) + ' (' + n.sentCount + ')' : 'مسودة')))))));
+      return box;
+    }
+
+    async function vBackups() {
+      const rows = await rpc('adm_backups', TOK); if (!rows.length) return h('p', { class: 'mut' }, 'لا توجد طلبات.');
+      return h('div', { class: 'card' }, h('table', {}, h('tbody', {}, rows.map((r) => h('tr', {}, h('td', {}, r.username), h('td', {}, r.email), h('td', {}, fmt(r.requestedAt)), h('td', {}, r.status === 'pending' ? h('button', { class: 'btn s p', onclick: async () => { await rpc('adm_approveBackup', TOK, r.id); toast('أُرسلت النسخة'); boot(); } }, 'موافقة وإرسال') : h('span', { class: 'tag ok' }, 'تمت ' + fmt(r.approvedAt))))))));
+    }
+
+    async function vUpdates() {
+      const v = await rpc('adm_getLatest', TOK); const f = { version: h('input', { value: v.version, placeholder: '0.1.0-beta.2' }), url: h('input', { value: v.url, placeholder: 'رابط تنزيل المثبّت', style: 'width:100%' }), notes: h('textarea', {}, v.notes) };
+      return h('div', { class: 'card' }, h('label', {}, 'آخر إصدار'), f.version, h('p'), h('label', {}, 'رابط التنزيل'), f.url, h('p'), h('label', {}, 'ملاحظات الإصدار'), f.notes, h('p'), h('button', { class: 'btn p', onclick: async () => { await rpc('adm_setLatest', TOK, { version: f.version.value, url: f.url.value, notes: f.notes.value }); toast('تم النشر للتطبيقات'); } }, 'نشر'));
+    }
+
+    async function vLog() {
+      const rows = await rpc('adm_log', TOK); return h('div', { class: 'card' }, h('table', {}, h('tbody', {}, rows.map((r) => h('tr', {}, h('td', { class: 'mut' }, fmt(r.ts)), h('td', {}, r.actor), h('td', {}, r.action), h('td', { class: 'mut' }, String(r.detail).slice(0, 120)))))));
+    }
+  </script>
+</body>
+</html>

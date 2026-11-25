@@ -1,0 +1,28 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b2b26"><title>CareDesk</title>
+<style>:root{--bg:#051f20;--s:#0b2b26;--s2:#163832;--ac:#8eb69b;--tx:#daf1de;--bad:#e5766b;--ok:#8eb69b;--warn:#e0b84f}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.6 system-ui,Tahoma,Arial,sans-serif}
+header{position:sticky;top:0;background:var(--s);padding:10px 14px;display:flex;gap:8px;align-items:center;box-shadow:0 2px 10px #0006}header b{flex:1;text-align:center}button{font:inherit;color:inherit;background:var(--s2);border:0;border-radius:12px;padding:10px 14px}button.p{background:var(--ac);color:#05211c;font-weight:700}
+main{padding:12px;display:grid;gap:10px;max-width:640px;margin:auto}.card{background:var(--s);border-radius:16px;padding:12px;display:grid;gap:8px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.sp{flex:1}.dim{opacity:.65;font-size:13px}.pill{border-radius:99px;padding:1px 10px;font-size:12px;background:var(--s2)}
+.pill.late{background:#7a2e27}.pill.in{background:#1f5a47}.pill.done{background:#2b4a3d;opacity:.8}.pill.arr{background:#6a5a1f}input{font:inherit;font-size:28px;letter-spacing:8px;text-align:center;width:100%;padding:12px;border-radius:14px;border:2px solid var(--s2);background:var(--s);color:var(--tx)}a{color:var(--ac)}h3{margin:6px 4px 0;opacity:.8}</style></head><body>
+<div id="app"></div><script>
+'use strict';
+const $=(s)=>document.querySelector(s);let TOKEN=sessionStorage.getItem('cdt')||'',DATE='',TM=0;
+const el=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==='class')e.className=v;else if(x.startsWith('on'))e.addEventListener(x.slice(2),v);else if(v!=null&&v!==false)e.setAttribute(x,v)}for(const c of k.flat())if(c!=null&&c!==false)e.append(c.nodeType?c:document.createTextNode(String(c)));return e};
+const post=async(u,b)=>{const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});return r.json().catch(()=>({ok:false}))};
+const call=async(method,args)=>{const r=await post('/api/call',{token:TOKEN,method,args});if(r.code==='AUTH'){TOKEN='';sessionStorage.removeItem('cdt');login();throw new Error('AUTH')}if(!r.ok)throw new Error(r.message||r.code);return r.data};
+const h12=(t)=>{const[h,m]=t.split(':').map(Number);return(h%12||12)+':'+String(m).padStart(2,'0')+(h<12?' ص':' م')};
+const iso=(d)=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);const shift=(s,n)=>{const d=new Date(s+'T12:00');d.setDate(d.getDate()+n);return iso(d)};
+function login(){clearInterval(TM);const i=el('input',{inputmode:'numeric',maxlength:6,placeholder:'••••••',autofocus:1}),m=el('p',{class:'dim'});
+ const go=async()=>{const r=await post('/api/login',{pin:i.value});if(r.ok){TOKEN=r.token;sessionStorage.setItem('cdt',TOKEN);main()}else m.textContent=r.code==='LOCKED'?'محاولات كثيرة، انتظر 5 دقائق':'الرمز غير صحيح'};
+ i.addEventListener('input',()=>{if(i.value.length===6)go()});$('#app').replaceChildren(el('main',{},el('div',{class:'card'},el('h2',{style:'margin:0'},'CareDesk 💚'),el('p',{class:'dim'},'أدخل رمز الربط الظاهر في البرنامج (الإعدادات ← الربط مع الهاتف)'),i,m)))}
+async function main(){clearInterval(TM);DATE=DATE||'';const draw=async()=>{let d;try{d=await call('phoneDay',{date:DATE||undefined})}catch(e){return}DATE=d.date;const now=d.now;
+ const nowM=new Date(now).getHours()*60+new Date(now).getMinutes();const isToday=d.date===d.today;
+ const list=d.items.map((x)=>{const[hh,mm]=x.time.split(':').map(Number);const late=isToday&&x.status==='booked'&&hh*60+mm<nowM;const st=x.status==='in_session'?['in','داخل الجلسة']:x.status==='attended'?['done','انتهت']:x.status==='arrived'?['arr','وصل']:late?['late','لم يصل']:['','محجوز'];
+  let left='';if(x.status==='in_session'&&x.timer_start){const r=Math.max(0,Math.ceil((x.timer_start+x.timer_min*60000-now)/60000));left=' · متبقي '+r+' د'}
+  const acts=[];if(x.status==='booked')acts.push(el('button',{onclick:async()=>{await call('markArrived',{id:x.id});draw()}},'وصل'));
+  if(x.status==='booked'||x.status==='arrived')acts.push(el('button',{class:'p',onclick:async()=>{await call('startTimer',{id:x.id});draw()}},'بدء الجلسة'));
+  if(x.status==='in_session')acts.push(el('button',{class:'p',onclick:async()=>{await call('finishSession',{id:x.id});draw()}},'إنهاء'));
+  return el('div',{class:'card'},el('div',{class:'row'},el('b',{},x.name),el('span',{class:'pill '+st[0]},st[1]+left),el('div',{class:'sp'}),el('span',{class:'dim'},h12(x.time))),el('div',{class:'dim'},[x.type,x.device].filter(Boolean).join(' · ')),el('div',{class:'row'},acts,x.phone?el('a',{href:'tel:'+x.phone,style:'margin-inline-start:auto'},'📞 '+x.phone):null))});
+ $('#app').replaceChildren(el('header',{},el('button',{onclick:()=>{DATE=shift(DATE,-1);draw()}},'›'),el('b',{},d.date+(isToday?' (اليوم)':'')),el('button',{onclick:()=>{DATE=shift(DATE,1);draw()}},'‹'),el('button',{onclick:()=>{DATE='';draw()}},'اليوم')),el('main',{},list.length?list:el('p',{class:'dim',style:'text-align:center'},'لا توجد جلسات')))};
+ await draw();TM=setInterval(draw,15000)}
+TOKEN?main():login();
+</script></body></html>
