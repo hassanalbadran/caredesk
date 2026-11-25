@@ -2,7 +2,7 @@
 
 # 🏥 CareDesk
 
-**A modern, offline-first clinic booking & reminder desktop app.**
+**A modern, offline-first clinic management and booking desktop application.**
 
 [![Version](https://img.shields.io/badge/version-0.1.0--beta.1-blue.svg?style=for-the-badge)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
@@ -19,17 +19,19 @@
 
 ## 📖 About The Project
 
-**CareDesk** is a Windows desktop application designed to streamline patient bookings, session distributions, and clinic management. It works entirely **offline**, ensuring patient data remains secure on your local machine while attempting background heartbeats for updates and licensing.
+**CareDesk** is a Windows desktop application designed to streamline patient bookings, session distributions, and daily clinic operations. It works entirely **offline**, ensuring patient data remains secure on your local machine while offering optional background synchronization.
+
+CareDesk is currently **100% free and open-source (MIT)**. There are no activation codes, no hidden fees, and no mandatory accounts required to use the core application.
 
 ### ✨ Key Features
 
-- **📅 Smart Scheduling:** Auto-distribute patient sessions based on customizable working hours, gaps, and patient groups.
-- **📱 WhatsApp Reminders:** Integration with WhatsApp Desktop for instant pre-filled reminders.
-- **🖨️ Receipt Designer:** Built-in visual designer for thermal, A4, and A5 printers with barcode/QR support.
-- **📊 Absentee & Dropout Tracking:** Automatic flagging for non-compliant patients and session reorganization.
-- **🔄 eClinic.info Sync:** Background, read-only sync from local eClinic databases to import patient history seamlessly.
-- **🌙 Soft UI:** Neo-tactile design system with dark/light modes and custom cursor support.
-- **🌐 Bilingual:** Full English and Arabic (RTL) support.
+- **📅 Dynamic Calendar & Drag-and-Drop:** A robust month-view calendar that acts as your main dashboard. Drag and drop patient sessions to reschedule effortlessly. Auto-distribute sessions based on patient classes, working hours, and smart gap rules.
+- **⏱️ Real-time Timers & Notifications:** Interactive device timelines with countdown timers. Track exactly who is in the chair, get alert notifications for session ends, and manage patient queues (laggards, dropped-out, VIPs).
+- **🖨️ Visual Receipt Designer:** Built-in, fully typable receipt designer supporting thermal printers, A4, A5, and A6. Magnetic blocks allow you to build custom layouts with barcodes, QR codes, and patient data.
+- **📱 WhatsApp Integration:** Send pre-filled appointment reminders directly to patients via WhatsApp Desktop.
+- **🔄 eClinic Database Import:** Background, read-only sync to pull patient history and appointments from local eClinic databases seamlessly.
+- **🛠️ Built-in Diagnostics:** Automatic self-check and repair system (Ctrl+Shift+D) that monitors for errors, creates safety backups before applying fixes, and ensures no patient data is ever lost.
+- **🌙 Soft UI & Accessibility:** Grid-aligned, rich neo-tactile design with dark/light modes, custom cursors, reduced-motion support, and full Arabic/English (RTL) localization.
 
 ---
 
@@ -41,87 +43,56 @@
 
 ### Installation & Run (Development)
 
-1. Clone the repo:
-   ```bash
-   git clone https://github.com/hassanalbadran/caredesk.git
-   cd caredesk
+1. Clone the repository:
+    git clone https://github.com/hassanalbadran/caredesk.git
+    cd caredesk
 
-    Install dependencies:
-    bash
-
+2. Install dependencies:
     npm install
 
-    Start the app in dev mode:
-    bash
-
+3. Start the app in dev mode:
     npm start
 
-    Build the Windows Installer:
-    bash
-
+4. Build the Windows Installer:
     npm run dist
+   *The `.exe` installer will be generated in the `dist/` folder.*
 
-    The .exe installer will be generated in the dist/ folder.
+---
 
-⚙️ Configuration
+## ⚙️ Configuration & Admin Dashboard
 
-Edit config/app.json to set up your environment:
-json
+Edit `config/app.json` to set up your environment (auto-updates, etc.):
 
-{
-  "gasUrl": "YOUR_APPS_SCRIPT_URL",
-  "site": "https://hasn2mr.pages.dev/",
-  "heartbeatHours": 6,
-  "paid": false,
-  "githubRepo": "hassanalbadran/caredesk",
-  "integrity": "warn"
-}
+    {
+      "gasUrl": "YOUR_APPS_SCRIPT_URL_IF_USED",
+      "site": "https://hasn2mr.pages.dev/",
+      "heartbeatHours": 6,
+      "paid": false,
+      "githubRepo": "hassanalbadran/caredesk"
+    }
 
-🛠️ Admin Dashboard (Optional)
+**Optional Backend:** CareDesk includes a Google Apps Script (`gas/`) for an optional admin dashboard. This can be used for error reporting, license management (if re-enabled in the future), and sending in-app notifications.
 
-CareDesk includes a Google Apps Script backend for license management, newsletters, and error reports.
+---
 
-    Go to gas/Code.gs and gas/index.html.
+## 💻 Tech Stack
 
-    Paste them into a new Google Apps Script project.
+- **Core:** Electron, Vanilla JavaScript (highly optimized for performance)
+- **Database:** `node:sqlite` (local storage in the install folder)
+- **UI/UX:** Neo-tactile custom CSS (No heavy frontend frameworks)
+- **Backend (Optional):** Google Apps Script + Google Sheets
+- **Assets:** Cairo font (OFL), Lucide Icons (ISC)
 
-    Run setup() to initialize the Sheets database.
+---
 
-    Run setAdminPassword('YOUR_SECURE_PASSWORD') to protect the dashboard.
+## 👨‍💻 Author
 
-    Deploy as a Web App (Execute as: Me, Access: Anyone).
+**Hasn Al-Badran**
+- Website: [https://hasn2mr.pages.dev/](https://hasn2mr.pages.dev/)
+- GitHub: [@hassanalbadran](https://github.com/hassanalbadran)
 
-🗺️ Roadmap (v0.2.0+)
+---
 
-    □
-
-    Authentication: Google, Microsoft, and Email login.
-    □
-
-    Device Linking: Android app connection via local Wi-Fi and QR pairing.
-    □
-
-    Activation System: 14-day trial lock + activation code validation.
-    □
-
-    AI Sandbox: Local testing environment for custom receipt scripts.
-
-💻 Tech Stack & Credits
-
-    Core: Electron, Vanilla JS, node:sqlite.
-
-    Fonts: Cairo (OFL 1.1) · Inter · IBM Plex Sans Arabic.
-
-    Icons: Lucide Icons (ISC).
-
-    All open-source assets are credited in-app under Settings → About.
-
-👨‍💻 Author
-
-Hasn Al-Badran
-
-    Website: https://hasn2mr.pages.dev/
-
-    GitHub: @hassanalbadran
-
-<div align="center"> <i>Built with ❤️ for Clinics in Iraq and beyond.</i> </div> ```
+<div align="center">
+  <i>Built with ❤️ for Clinics. Fully offline. Zero subscriptions.</i>
+</div>
