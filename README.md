@@ -45,3 +45,83 @@
    ```bash
    git clone https://github.com/hassanalbadran/caredesk.git
    cd caredesk
+
+    Install dependencies:
+    bash
+
+    npm install
+
+    Start the app in dev mode:
+    bash
+
+    npm start
+
+    Build the Windows Installer:
+    bash
+
+    npm run dist
+
+    The .exe installer will be generated in the dist/ folder.
+
+⚙️ Configuration
+
+Edit config/app.json to set up your environment:
+json
+
+{
+  "gasUrl": "YOUR_APPS_SCRIPT_URL",
+  "site": "https://hasn2mr.pages.dev/",
+  "heartbeatHours": 6,
+  "paid": false,
+  "githubRepo": "hassanalbadran/caredesk",
+  "integrity": "warn"
+}
+
+🛠️ Admin Dashboard (Optional)
+
+CareDesk includes a Google Apps Script backend for license management, newsletters, and error reports.
+
+    Go to gas/Code.gs and gas/index.html.
+
+    Paste them into a new Google Apps Script project.
+
+    Run setup() to initialize the Sheets database.
+
+    Run setAdminPassword('YOUR_SECURE_PASSWORD') to protect the dashboard.
+
+    Deploy as a Web App (Execute as: Me, Access: Anyone).
+
+🗺️ Roadmap (v0.2.0+)
+
+    □
+
+    Authentication: Google, Microsoft, and Email login.
+    □
+
+    Device Linking: Android app connection via local Wi-Fi and QR pairing.
+    □
+
+    Activation System: 14-day trial lock + activation code validation.
+    □
+
+    AI Sandbox: Local testing environment for custom receipt scripts.
+
+💻 Tech Stack & Credits
+
+    Core: Electron, Vanilla JS, node:sqlite.
+
+    Fonts: Cairo (OFL 1.1) · Inter · IBM Plex Sans Arabic.
+
+    Icons: Lucide Icons (ISC).
+
+    All open-source assets are credited in-app under Settings → About.
+
+👨‍💻 Author
+
+Hasn Al-Badran
+
+    Website: https://hasn2mr.pages.dev/
+
+    GitHub: @hassanalbadran
+
+<div align="center"> <i>Built with ❤️ for Clinics in Iraq and beyond.</i> </div> ```
