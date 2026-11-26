@@ -39,6 +39,8 @@ android {
             val path = System.getenv("KEYSTORE_PATH")
             if (path != null && file(path).exists()) {
                 storeFile = file(path)
+                // PKCS12 is what current keytool creates; the workflow passes the detected type ("jks" for old keystores).
+                storeType = System.getenv("KEYSTORE_TYPE") ?: "pkcs12"
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("KEY_ALIAS")
                 keyPassword = System.getenv("KEY_PASSWORD")
