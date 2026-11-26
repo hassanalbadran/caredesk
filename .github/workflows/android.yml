@@ -23,7 +23,7 @@ jobs:
           java-version: '17'
 
       - name: Download open-source fonts
-        run: ./scripts/fetch-fonts.sh
+        run: bash ./scripts/fetch-fonts.sh
 
       - uses: gradle/actions/setup-gradle@v4
         with:
