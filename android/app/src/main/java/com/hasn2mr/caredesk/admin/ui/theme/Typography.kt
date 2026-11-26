@@ -1,6 +1,7 @@
 package com.hasn2mr.caredesk.admin.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -26,6 +27,7 @@ val ArabicBody = FontFamily(
     Font(R.font.arabic_body_bold, FontWeight.Bold),
 )
 
+@OptIn(ExperimentalTextApi::class)
 private fun variable(res: Int, w: FontWeight) =
     Font(res, w, FontStyle.Normal, variationSettings = FontVariation.Settings(w, FontStyle.Normal))
 

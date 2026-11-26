@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -40,15 +41,32 @@ fun DayScreen(c: AppContainer, date: String, onBack: () -> Unit) {
     val flow = remember(date) {
         c.accounts.state.flatMapLatest { st -> st.active?.let { c.db.sessions().forDay(it.id, date) } ?: flowOf(emptyList()) }
     }
-    val list by flow.collectAsState(emptyList())
-    Column(Modifier.fillMaxSize().background(cs.background).systemBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val list by flow.collectAsState(initial = emptyList())
+    
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(cs.background)
+            .systemBarsPadding()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back)) }
+            IconButton(onClick = onBack) { 
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.back)) 
+            }
             Text(date, style = MaterialTheme.typography.headlineSmall, color = cs.onBackground)
         }
-        if (list.isEmpty()) Text(stringResource(R.string.no_sessions), color = cs.onSurfaceVariant)
+        
+        if (list.isEmpty()) {
+            Text(stringResource(R.string.no_sessions), color = cs.onSurfaceVariant)
+        }
+        
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(list, key = { it.id }) { SessionRow(it) }
+            // تم إصلاح الخطأ هنا: إزالة key وإضافة items = list
+            items(items = list) { session ->
+                SessionRow(session)
+            }
         }
     }
 }
@@ -56,7 +74,13 @@ fun DayScreen(c: AppContainer, date: String, onBack: () -> Unit) {
 @Composable
 private fun SessionRow(s: SessionEntity) {
     val cs = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth().neo(RoundedCornerShape(18.dp), 5.dp).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .neo(RoundedCornerShape(18.dp), 5.dp)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(s.time, style = MaterialTheme.typography.titleMedium, color = cs.primary, modifier = Modifier.padding(end = 14.dp))
         Column(Modifier.weight(1f)) {
             Text(s.patientName, style = MaterialTheme.typography.titleSmall, color = cs.onSurface)
