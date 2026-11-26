@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">كير ديسك — الإدارة</string>
+    <string name="login_subtitle">أدِر عيادتك من هاتفك</string>
+    <string name="sign_in">تسجيل الدخول</string>
+    <string name="create_account">إنشاء حساب</string>
+    <string name="username">اسم المستخدم</string>
+    <string name="email">البريد الإلكتروني</string>
+    <string name="phone_optional">رقم الهاتف (اختياري)</string>
+    <string name="id_or_email">اسم المستخدم أو البريد</string>
+    <string name="password">كلمة المرور</string>
+    <string name="confirm_password">تأكيد كلمة المرور</string>
+    <string name="password_hint">8 أحرف على الأقل.</string>
+    <string name="cancel">إلغاء</string>
+    <string name="back">رجوع</string>
+
+    <string name="err_bad_login">اسم المستخدم أو كلمة المرور غير صحيحة.</string>
+    <string name="err_locked">محاولات كثيرة. حاول مجددًا بعد دقائق.</string>
+    <string name="err_banned">هذا الحساب معطّل.</string>
+    <string name="err_device_limit">وصل هذا الحساب إلى الحد الأقصى من الأجهزة.</string>
+    <string name="err_offline">لا يوجد اتصال بالخادم. تحقق من الإنترنت وحاول مجددًا.</string>
+    <string name="err_bad_username">اسم المستخدم من 3 إلى 24 حرفًا أو رقمًا أو شرطة سفلية.</string>
+    <string name="err_bad_email">البريد الإلكتروني غير صالح.</string>
+    <string name="err_weak_password">كلمة المرور ضعيفة (استخدم 8 أحرف على الأقل).</string>
+    <string name="err_username_taken">اسم المستخدم مستخدم مسبقًا.</string>
+    <string name="err_email_taken">هذا البريد مسجّل مسبقًا.</string>
+    <string name="err_account_limit">يمكنك تسجيل الدخول بحد أقصى 3 حسابات على هذا الهاتف.</string>
+    <string name="err_empty">يرجى ملء جميع الحقول المطلوبة.</string>
+    <string name="err_password_mismatch">كلمتا المرور غير متطابقتين.</string>
+    <string name="err_generic">حدث خطأ ما. حاول مرة أخرى.</string>
+
+    <string name="stats_24h">اليوم</string>
+    <string name="stats_7d">٧ أيام</string>
+    <string name="stats_30d">٣٠ يومًا</string>
+    <string name="sessions_unit">جلسة</string>
+    <string name="sync">مزامنة</string>
+    <string name="sync_offline">لا يوجد اتصال. تُعرض البيانات المحفوظة.</string>
+    <string name="sync_auth">انتهت الجلسة. سجّل الدخول مجددًا.</string>
+    <string name="sync_error">تعذّرت المزامنة مع الخادم.</string>
+    <string name="prev_month">الشهر السابق</string>
+    <string name="next_month">الشهر التالي</string>
+    <string name="jump_today">الذهاب إلى اليوم</string>
+    <string name="open_day">فتح اليوم</string>
+    <string name="load_light">خفيف</string>
+    <string name="load_busy">مزدحم</string>
+    <string name="load_full">ممتلئ</string>
+    <string name="empty_title">لا توجد بيانات بعد</string>
+    <string name="empty_body">تظهر الجلسات هنا بعد أن يزامن تطبيق العيادة على الحاسوب. يمكنك تحميل بيانات تجريبية لاستكشاف التطبيق.</string>
+    <string name="load_demo">تحميل بيانات تجريبية</string>
+    <string name="no_sessions">لا توجد جلسات في هذا اليوم.</string>
+    <string name="accounts_count">%1$d من %2$d حسابات</string>
+    <string name="add_account">إضافة حساب</string>
+    <string name="sign_out">تسجيل الخروج</string>
+
+    <string name="ch_alerts">تنبيهات العيادة</string>
+    <string name="ch_vip">مرضى VIP</string>
+    <string name="ch_broadcast">الرسائل</string>
+    <string name="ch_sync_fail">الإجراءات الفاشلة</string>
+</resources>

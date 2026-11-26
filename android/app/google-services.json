@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1098705820725",
+    "project_id": "hasn2mr-caredesk",
+    "storage_bucket": "hasn2mr-caredesk.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1098705820725:android:7d8cf9850616d31d87a57c",
+        "android_client_info": {
+          "package_name": "com.hasn2mr.caredesk.admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHV5YiONUtizuY-hmE4-n5ysvVKzX5Uk0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

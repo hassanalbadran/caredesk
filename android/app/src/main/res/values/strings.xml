@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CareDesk Admin</string>
+    <string name="login_subtitle">Manage your clinic from your phone</string>
+    <string name="sign_in">Sign in</string>
+    <string name="create_account">Create account</string>
+    <string name="username">Username</string>
+    <string name="email">Email</string>
+    <string name="phone_optional">Phone (optional)</string>
+    <string name="id_or_email">Username or email</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm password</string>
+    <string name="password_hint">At least 8 characters.</string>
+    <string name="cancel">Cancel</string>
+    <string name="back">Back</string>
+
+    <string name="err_bad_login">Wrong username or password.</string>
+    <string name="err_locked">Too many attempts. Try again in a few minutes.</string>
+    <string name="err_banned">This account is disabled.</string>
+    <string name="err_device_limit">This account has reached its device limit.</string>
+    <string name="err_offline">No connection to the server. Check your internet and try again.</string>
+    <string name="err_bad_username">Username must be 3–24 letters, digits or underscores.</string>
+    <string name="err_bad_email">This email address is not valid.</string>
+    <string name="err_weak_password">Password is too weak (use at least 8 characters).</string>
+    <string name="err_username_taken">This username is already taken.</string>
+    <string name="err_email_taken">This email is already registered.</string>
+    <string name="err_account_limit">You can sign in with up to 3 accounts on this phone.</string>
+    <string name="err_empty">Please fill in all required fields.</string>
+    <string name="err_password_mismatch">Passwords do not match.</string>
+    <string name="err_generic">Something went wrong. Please try again.</string>
+
+    <string name="stats_24h">Today</string>
+    <string name="stats_7d">7 days</string>
+    <string name="stats_30d">30 days</string>
+    <string name="sessions_unit">sessions</string>
+    <string name="sync">Sync</string>
+    <string name="sync_offline">You are offline. Showing saved data.</string>
+    <string name="sync_auth">Your session expired. Please sign in again.</string>
+    <string name="sync_error">Could not sync with the server.</string>
+    <string name="prev_month">Previous month</string>
+    <string name="next_month">Next month</string>
+    <string name="jump_today">Go to today</string>
+    <string name="open_day">Open day</string>
+    <string name="load_light">Light</string>
+    <string name="load_busy">Busy</string>
+    <string name="load_full">Full</string>
+    <string name="empty_title">No data yet</string>
+    <string name="empty_body">Sessions appear here once the clinic desktop app syncs. You can load sample data to explore the app.</string>
+    <string name="load_demo">Load sample data</string>
+    <string name="no_sessions">No sessions on this day.</string>
+    <string name="accounts_count">%1$d of %2$d accounts</string>
+    <string name="add_account">Add account</string>
+    <string name="sign_out">Sign out</string>
+
+    <string name="ch_alerts">Clinic alerts</string>
+    <string name="ch_vip">VIP patients</string>
+    <string name="ch_broadcast">Messages</string>
+    <string name="ch_sync_fail">Failed actions</string>
+</resources>
