@@ -101,10 +101,11 @@ function grant(accountId, plan, days, source, codeId, tier) {
   return lic;
 }
 function accountBy(id) { const k = String(id || '').trim().toLowerCase(); return all('Accounts').filter((a) => String(a.id) === id || String(a.username).toLowerCase() === k || String(a.email).toLowerCase() === k)[0] || null; }
-function seatCheck(acc, fp, parts) {
-  const mine = all('Devices').filter((d) => d.accountId === acc.id && String(d.active) !== '0' && d.platform === 'pc');
+function seatCheck(acc, fp, parts, plat) {
+  plat = plat === 'android' ? 'android' : 'pc';
+  const mine = all('Devices').filter((d) => d.accountId === acc.id && String(d.active) !== '0' && d.platform === plat);
   const s = strong(parts); if (mine.some((d) => d.fp === fp || strong(J(d.parts, {})).some((x) => s.indexOf(x) >= 0))) return true;
-  return mine.length < Number(acc.seatsPc);
+  return mine.length < Number(plat === 'android' ? acc.seatsAndroid : acc.seatsPc);
 }
 function touchDevice(acc, fp, parts, name, platform, role) {
   const ex = deviceFind(fp, parts); const now = Date.now();
@@ -173,8 +174,9 @@ const API = {
     if (!okPw) { cache.put('f:' + key, String(fails + 1), 900); return { ok: false, code: 'BAD_LOGIN' }; }
     cache.remove('f:' + key);
     if (acc.status === 'banned') return { ok: false, code: 'BANNED' };
-    if (!seatCheck(acc, r.fp, r.parts)) return { ok: false, code: 'DEVICE_LIMIT' };
-    touchDevice(acc, r.fp, r.parts, r.deviceName, 'pc', sub ? 'sub' : 'owner'); upd('Accounts', acc._row, { lastLoginAt: Date.now() });
+    const plat = r.platform === 'android' ? 'android' : 'pc';
+    if (!seatCheck(acc, r.fp, r.parts, plat)) return { ok: false, code: 'DEVICE_LIMIT' };
+    touchDevice(acc, r.fp, r.parts, r.deviceName, plat, sub ? 'sub' : 'owner'); upd('Accounts', acc._row, { lastLoginAt: Date.now() });
     const lic = bestLicense(acc.id);
     return { ok: true, serverTime: Date.now(), account: publicAcc(acc), sub: sub ? { id: sub.subId, role: sub.role, perms: J(sub.perms, []), tempPass: String(sub.tempPass) === 'true' } : null,
       session: hmacTok({ a: acc.id, s: sub ? sub.subId : '' }, 90 * DAY), token: lic ? issueToken(acc, lic, r.fp) : null, hasLicense: !!lic };

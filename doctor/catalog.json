@@ -1,0 +1,294 @@
+[
+ {
+  "code": "E101",
+  "name": "DB_INTEGRITY_FAILED",
+  "sev": "critical",
+  "auto": false,
+  "ar": "قاعدة البيانات تالفة جزئياً",
+  "en": "Database file is damaged",
+  "steps_ar": [
+   "أغلق التطبيق وانسخ ملف قاعدة البيانات احتياطياً.",
+   "من الإعدادات ← الحساب والنسخ الاحتياطي استعد آخر نسخة سليمة.",
+   "إن تكرر الخطأ اطلب من المطوّر فحص الملف."
+  ],
+  "steps_en": [
+   "Close the app and copy the database file.",
+   "Restore the last good backup from Settings > Account & backup.",
+   "If it repeats, send the file to the developer."
+  ]
+ },
+ {
+  "code": "E102",
+  "name": "ORPHAN_BOOKING",
+  "sev": "medium",
+  "auto": true,
+  "ar": "جلسات بلا مريض",
+  "en": "Sessions without a patient",
+  "steps_ar": [
+   "يُلغى الحجز اليتيم تلقائياً دون حذف بياناته."
+  ],
+  "steps_en": [
+   "Orphan sessions are cancelled automatically, nothing is deleted."
+  ]
+ },
+ {
+  "code": "E103",
+  "name": "STALE_IN_SESSION",
+  "sev": "low",
+  "auto": true,
+  "ar": "جلسة عالقة «داخل الجلسة» من يوم سابق",
+  "en": "Session stuck in progress from a past day",
+  "steps_ar": [
+   "تُعتبر منتهية وتُسجَّل حضوراً."
+  ],
+  "steps_en": [
+   "Marked as finished/attended."
+  ]
+ },
+ {
+  "code": "E104",
+  "name": "DEVICE_DOUBLE_RUNNING",
+  "sev": "medium",
+  "auto": true,
+  "ar": "مريضان داخل الجلسة على نفس الجهاز",
+  "en": "Two patients in session on one device",
+  "steps_ar": [
+   "تُنهى الجلسة الأقدم تلقائياً."
+  ],
+  "steps_en": [
+   "The older session is finished automatically."
+  ]
+ },
+ {
+  "code": "E105",
+  "name": "BAD_TIME_RANGE",
+  "sev": "low",
+  "auto": true,
+  "ar": "وقت نهاية الجلسة غير صالح",
+  "en": "Invalid session end time",
+  "steps_ar": [
+   "يُعاد حساب النهاية من مدة نوع الجلسة."
+  ],
+  "steps_en": [
+   "End time is recalculated from the session type duration."
+  ]
+ },
+ {
+  "code": "E106",
+  "name": "DEVICE_OVERLAP",
+  "sev": "medium",
+  "auto": false,
+  "ar": "تعارض: جلستان تتداخلان على نفس الجهاز",
+  "en": "Two sessions overlap on one device",
+  "steps_ar": [
+   "افتح الكالندر وحرّك إحدى الجلستين بالسحب إلى ساعة أخرى.",
+   "أو استعمل زر «أصلح الباقي تلقائياً»."
+  ],
+  "steps_en": [
+   "Open Home and drag one of the sessions to another hour.",
+   "Or use \"Fix the rest automatically\"."
+  ]
+ },
+ {
+  "code": "E107",
+  "name": "MISSING_BARCODE",
+  "sev": "low",
+  "auto": true,
+  "ar": "مريض بلا رقم/باركود",
+  "en": "Patient without code",
+  "steps_ar": [
+   "يُولَّد رقم جديد تلقائياً."
+  ],
+  "steps_en": [
+   "A new code is generated."
+  ]
+ },
+ {
+  "code": "E108",
+  "name": "BAD_SETTINGS",
+  "sev": "medium",
+  "auto": true,
+  "ar": "إعداد غير صالح",
+  "en": "Invalid setting value",
+  "steps_ar": [
+   "يُرجَع الإعداد التالف فقط إلى قيمته الافتراضية."
+  ],
+  "steps_en": [
+   "Only the broken setting is reset to default."
+  ]
+ },
+ {
+  "code": "E109",
+  "name": "DANGLING_TAG",
+  "sev": "low",
+  "auto": true,
+  "ar": "وسم محذوف ما زال مرتبطاً بمريض",
+  "en": "Deleted tag still linked",
+  "steps_ar": [
+   "يُحذف الارتباط فقط."
+  ],
+  "steps_en": [
+   "Only the link is removed."
+  ]
+ },
+ {
+  "code": "E110",
+  "name": "DANGLING_DEVICE",
+  "sev": "low",
+  "auto": true,
+  "ar": "جلسة مرتبطة بجهاز محذوف",
+  "en": "Session linked to a deleted device",
+  "steps_ar": [
+   "يُفصل الجهاز عن الجلسة وتبقى الجلسة."
+  ],
+  "steps_en": [
+   "The device is unlinked; the session stays."
+  ]
+ },
+ {
+  "code": "E113",
+  "name": "BAD_TIMER",
+  "sev": "low",
+  "auto": true,
+  "ar": "مؤقت بقيمة غير صالحة",
+  "en": "Timer has an invalid value",
+  "steps_ar": [
+   "يُصفَّر المؤقت."
+  ],
+  "steps_en": [
+   "The timer is reset."
+  ]
+ },
+ {
+  "code": "E114",
+  "name": "BAD_PRICE",
+  "sev": "low",
+  "auto": true,
+  "ar": "سعر غير صالح",
+  "en": "Invalid price",
+  "steps_ar": [
+   "يُفرَّغ السعر ويُملأ من سعر النوع."
+  ],
+  "steps_en": [
+   "Price is cleared and refilled from the session type."
+  ]
+ },
+ {
+  "code": "E115",
+  "name": "NOTIFICATION_BLOAT",
+  "sev": "low",
+  "auto": true,
+  "ar": "إشعارات قديمة كثيرة",
+  "en": "Too many old notifications",
+  "steps_ar": [
+   "تُحذف الإشعارات المنتهية الأقدم من 30 يوماً فقط."
+  ],
+  "steps_en": [
+   "Only resolved notifications older than 30 days are pruned."
+  ]
+ },
+ {
+  "code": "E801",
+  "name": "TAMPER_FILES",
+  "sev": "critical",
+  "auto": false,
+  "ar": "ملفات التطبيق عُدِّلت",
+  "en": "Application files were modified",
+  "steps_ar": [
+   "أعد تثبيت التطبيق من المصدر الرسمي.",
+   "بياناتك لا تتأثر بإعادة التثبيت."
+  ],
+  "steps_en": [
+   "Reinstall the app from the official source.",
+   "Your data is not affected by reinstalling."
+  ]
+ },
+ {
+  "code": "E802",
+  "name": "DEVTOOLS_BYPASS",
+  "sev": "high",
+  "auto": false,
+  "ar": "محاولة فتح أدوات المطوّر دون إذن",
+  "en": "Unauthorised developer-tools attempt",
+  "steps_ar": [
+   "أُغلقت الأدوات تلقائياً وسُجّلت المحاولة."
+  ],
+  "steps_en": [
+   "Tools were closed and the attempt logged."
+  ]
+ },
+ {
+  "code": "E803",
+  "name": "PERMISSION_BYPASS",
+  "sev": "high",
+  "auto": false,
+  "ar": "محاولة تنفيذ إجراء بلا صلاحية",
+  "en": "Action attempted without permission",
+  "steps_ar": [
+   "رُفض الإجراء وسُجّلت المحاولة في سجل النشاط.",
+   "راجع سجل النشاط لمعرفة الحساب."
+  ],
+  "steps_en": [
+   "The action was refused and logged in the activity log.",
+   "Check the activity log for the account."
+  ]
+ },
+ {
+  "code": "E901",
+  "name": "UI_EXCEPTION",
+  "sev": "medium",
+  "auto": false,
+  "ar": "خطأ غير متوقع في الواجهة",
+  "en": "Unexpected interface error",
+  "steps_ar": [
+   "اضغط «فحص وإصلاح» أو Ctrl+Shift+D.",
+   "إن تكرر أعد تشغيل التطبيق."
+  ],
+  "steps_en": [
+   "Press \"Scan & repair\" or Ctrl+Shift+D.",
+   "If it repeats, restart the app."
+  ]
+ },
+ {
+  "code": "E902",
+  "name": "UNHANDLED_PROMISE",
+  "sev": "medium",
+  "auto": false,
+  "ar": "عملية فشلت دون معالجة",
+  "en": "Unhandled failed operation",
+  "steps_ar": [
+   "اضغط «فحص وإصلاح»."
+  ],
+  "steps_en": [
+   "Press \"Scan & repair\"."
+  ]
+ },
+ {
+  "code": "E903",
+  "name": "CALL_FAILED",
+  "sev": "medium",
+  "auto": false,
+  "ar": "فشل استدعاء داخلي",
+  "en": "Internal call failed",
+  "steps_ar": [
+   "اضغط «فحص وإصلاح» ثم أعد المحاولة."
+  ],
+  "steps_en": [
+   "Press \"Scan & repair\" and retry."
+  ]
+ },
+ {
+  "code": "E904",
+  "name": "UPDATE_FAILED",
+  "sev": "low",
+  "auto": false,
+  "ar": "فشل تنزيل التحديث",
+  "en": "Update download failed",
+  "steps_ar": [
+   "تحقق من الإنترنت وأعد المحاولة من الإعدادات ← حول."
+  ],
+  "steps_en": [
+   "Check the internet and retry from Settings > About."
+  ]
+ }
+]

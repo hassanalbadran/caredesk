@@ -24,7 +24,7 @@ CD.layout = () => {
       h('button.wb.x', { 'data-tip': t('closeApp'), onclick: () => CD.sys('win', { op: 'close' }), html: ic('x', 's') })),
     h('.body', h('nav.rail#rail', NAV.filter(([, , p]) => !p || CD.perms.includes(p)).map(([k, i]) => h('button', { id: 'nav-' + k, 'data-tip': t('nav.' + k), onclick: () => CD.go(k), html: ic(i) })), h('.sp'),
       h('button', { 'data-tip': t('logout'), onclick: CD.logout, html: ic('logout') })), h('main#main')),
-    h('.foot', h('span#foot-user'), h('.sp'), h('span#foot-note'), h('span', 'CareDesk v0.1.0-beta.2')));
+    h('.foot', h('span#foot-user'), h('.sp'), h('span#foot-note'), h('span#foot-ver', 'CareDesk')));
   CD.renderMeta();
 };
 CD.renderMeta = () => {
@@ -46,10 +46,10 @@ CD.logout = async () => { await CD.call('logout'); CD.user = null; CD.afterAuth(
 
 CD.enterApp = async (target) => {
   const me = await CD.call('whoami'); CD.user = me.actor; CD.perms = me.perms; CD.role = me.role;
-  CD.S = await CD.call('getSettings'); CD.applyLook(); CD.account = await CD.sys('account');
+  CD.S = await CD.call('getSettings'); CD.applyLook(); CD.loadCustomFonts(); CD.account = await CD.sys('account');
   CD.layout(); CD.go(target && !target.startsWith('settings.') ? target : target ? 'settings' : (CD.perms.includes('view_calendar') ? 'calendar' : CD.perms.includes('view_today') ? 'today' : 'settings'), target && target.startsWith('settings.') ? target.split('.')[1] : null);
   if (localStorage.getItem('cd.justRegistered')) { localStorage.removeItem('cd.justRegistered'); CD.thanksDialog(); }
-  CD.badge(); CD.timerWatch(); CD.startUpdateWatch(); CD.call('sweep').then(CD.badge).catch(() => {});
+  CD.badge(); CD.timerWatch(); CD.startUpdateWatch(); CD.sys('info').then((i) => { const f = document.getElementById('foot-ver'); if (f) f.textContent = 'CareDesk v' + i.version; }).catch(() => {}); CD.call('sweep').then(CD.badge).catch(() => {});
 };
 CD.afterAuth = async (target) => {
   const r = await CD.call('whoami').catch(() => null);
@@ -70,6 +70,7 @@ CD.boot = async () => {
 CD.onScan = async (code) => { if (!CD.user) return; const p = await CD.call('barcodeLookup', { code }); if (p) CD.openProfile && CD.openProfile(p.id); else CD.toast(t('scanNone'), 'bad'); };
 window.addEventListener('DOMContentLoaded', () => {
   CD.applyLook = CD.applyLook || (() => {}); CD.setLang('ar'); CD.applyCursor(true);
+  window.cd.on('call:incoming', (r) => { if (CD.incomingCall) CD.incomingCall(r); });
   window.cd.on('license:changed', (st) => { CD.lic = st; if (!st.canUse) CD.onLocked(); else CD.renderMeta(); });
   window.cd.on('notify', () => CD.badge());
   setInterval(() => { if (CD.user && CD.lic) CD.badge(); }, 60000);

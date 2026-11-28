@@ -87,7 +87,7 @@
 
   <div class="app" id="app" hidden>
     <aside class="side">
-      <div class="brand">CareDesk<small>Admin · v0.1 beta</small></div>
+      <div class="brand">CareDesk<small>Admin · v1.0</small></div>
       <div id="nav"></div>
       <div style="flex:1"></div>
       <button class="nav" id="out"><span>تسجيل الخروج</span></button>
@@ -254,7 +254,7 @@
     }
 
     async function vUpdates() {
-      const v = await rpc('adm_getLatest', TOK); const f = { version: h('input', { value: v.version, placeholder: '0.1.0-beta.2' }), url: h('input', { value: v.url, placeholder: 'رابط تنزيل المثبّت', style: 'width:100%' }), notes: h('textarea', {}, v.notes) };
+      const v = await rpc('adm_getLatest', TOK); const f = { version: h('input', { value: v.version, placeholder: '1.0.0' }), url: h('input', { value: v.url, placeholder: 'رابط تنزيل المثبّت', style: 'width:100%' }), notes: h('textarea', {}, v.notes) };
       return h('div', { class: 'card' }, h('label', {}, 'آخر إصدار'), f.version, h('p'), h('label', {}, 'رابط التنزيل'), f.url, h('p'), h('label', {}, 'ملاحظات الإصدار'), f.notes, h('p'), h('button', { class: 'btn p', onclick: async () => { await rpc('adm_setLatest', TOK, { version: f.version.value, url: f.url.value, notes: f.notes.value }); toast('تم النشر للتطبيقات'); } }, 'نشر'));
     }
 

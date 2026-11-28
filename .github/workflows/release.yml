@@ -16,4 +16,4 @@ jobs:
       - name: Publish installer to the PUBLIC releases repo (source repo stays private)
         shell: bash
         env: { GH_TOKEN: '${{ secrets.RELEASES_TOKEN }}' }
-        run: gh release create "${GITHUB_REF_NAME}" dist/*.exe --repo "${{ vars.RELEASES_REPO }}" --title "CareDesk ${GITHUB_REF_NAME}" --notes "CareDesk ${GITHUB_REF_NAME}"
+        run: gh release create "${GITHUB_REF_NAME}" dist/*.exe --repo "${{ vars.RELEASES_REPO }}" --title "CareDesk ${GITHUB_REF_NAME}" --notes "CareDesk ${GITHUB_REF_NAME}" --latest

@@ -23,19 +23,20 @@ CD.clip = null; // { mode:'cut'|'copy', id, name }
 
 // ================= HOME: month calendar, one button per session type inside each day =================
 CD.views.calendar = async (root, arg) => {
-  let ym = (arg && arg.ym) || CD.iso().slice(0, 7); const grid = h('.fcal'), lbl = h('b', { style: { minWidth: '170px', textAlign: 'center', fontSize: '16px' } });
+  root.classList.add('fitcal');
+  let ym = (arg && arg.ym) || CD.iso().slice(0, 7); const grid = h('.fcal.fit'), lbl = h('b', { style: { minWidth: '170px', textAlign: 'center', fontSize: '16px' } });
   const shiftM = (n) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); load(); };
   async function load() {
     await CD.try(async () => {
       const data = await CD.call('homeMonth', { ym }); const [y, m] = ym.split('-').map(Number); const first = new Date(y, m - 1, 1), n = new Date(y, m, 0).getDate(), today = CD.iso();
-      lbl.textContent = monthLabel(ym); const cells = [0, 1, 2, 3, 4, 5, 6].map((d) => h('.dn', t('days' + d)));
+      lbl.textContent = monthLabel(ym); grid.style.setProperty('--rows', Math.ceil((first.getDay() + n) / 7)); const cells = [0, 1, 2, 3, 4, 5, 6].map((d) => h('.dn', t('days' + d)));
       for (let i = 0; i < first.getDay(); i++) cells.push(h('.fday.void'));
       for (let d = 1; d <= n; d++) {
         const iso = `${ym}-${String(d).padStart(2, '0')}`, x = data.days[iso] || { total: 0, types: {} }; const closed = !(CD.S.hours && CD.S.hours[new Date(y, m - 1, d).getDay()] || {}).on;
         const cell = h('.fday', { class: (iso === today ? 'today ' : '') + (iso < today ? 'past ' : '') + (closed ? 'closed' : '') },
           h('.fh', h('span.n', d), x.conflicts ? h('span.warn', { 'data-tip': t('cal.conf'), html: ic('warn', 's') }) : null, h('.sp'), x.total ? h('span.pill', x.total) : null),
           h('.ftb', data.types.map((ty, i) => { const c = (x.types[ty.id] || { n: 0 }).n; return h('button.tbtn', { class: c ? '' : 'zero', style: { '--c': hue(i) }, onclick: () => CD.go('type', { date: iso, typeId: ty.id }) }, h('span', ty.name), h('b', c)); })));
-        CD.onCtx(cell, () => [{ icon: 'today', label: t('nav.today'), onclick: () => CD.go('today', { date: iso }) }, ...data.types.map((ty) => ({ icon: 'calendar', label: ty.name, onclick: () => CD.go('type', { date: iso, typeId: ty.id }) }))]);
+        CD.onCtx(cell, () => [CD.newPatientItem({ date: iso, onDone: load }), { sep: 1 }, { icon: 'today', label: t('nav.today'), onclick: () => CD.go('today', { date: iso }) }, ...data.types.map((ty) => ({ icon: 'calendar', label: ty.name, onclick: () => CD.go('type', { date: iso, typeId: ty.id }) }))]);
         cells.push(cell);
       }
       CD.mount(grid, cells);
@@ -49,9 +50,10 @@ CD.views.calendar = async (root, arg) => {
 CD.views.type = async (root, arg) => {
   const { date, typeId } = arg; await CD.try(async () => {
     const p = await CD.call('typePage', { date, typeId }); const dayBtn = (n, ic_) => h('button.btn.ico', { onclick: () => CD.go('type', { date: CD.addDays(date, n), typeId }), html: ic(ic_) });
-    const card = (title, count, fn, extra) => h('button.dcard', { onclick: fn }, h('b', title), h('span.pill' + (count ? '.ok' : ''), count), extra || null);
+    const card = (title, count, fn, extra, devId) => { const el = h('button.dcard', { onclick: fn }, h('b', title), h('span.pill' + (count ? '.ok' : ''), count), extra || null); if (devId !== undefined) CD.onCtx(el, () => [CD.newPatientItem({ date, typeId, deviceId: devId, onDone: () => CD.go('type', { date, typeId }) })]); return el; };
+    CD.onCtx(root, () => [CD.newPatientItem({ date, typeId, onDone: () => CD.go('type', { date, typeId }) })]);
     CD.mount(root, h('.hd', backBtn(() => CD.go('calendar', { ym: date.slice(0, 7) })), h('h1.h1', p.type ? p.type.name : ''), h('span.dim', CD.fmtD(date)), h('.sp'), dayBtn(CD.lang === 'ar' ? 1 : -1, CD.lang === 'ar' ? 'right' : 'left'), dayBtn(CD.lang === 'ar' ? -1 : 1, CD.lang === 'ar' ? 'left' : 'right'), h('span.pill', `${t('fl.total')}: ${p.total}`)),
-      h('h3.sech', t('fl.devices')), p.devices.length || p.unassigned ? h('.dgrid', p.devices.map((d) => card(d.name, d.count, () => CD.go('device', { date, deviceId: d.id, typeId }))), p.unassigned ? card(t('fl.unassigned'), p.unassigned, () => CD.go('device', { date, deviceId: null, typeId })) : null) : h('p.dim', t('fl.noDev')),
+      h('h3.sech', t('fl.devices')), p.devices.length || p.unassigned ? h('.dgrid', p.devices.map((d) => card(d.name, d.count, () => CD.go('device', { date, deviceId: d.id, typeId }), null, d.id)), p.unassigned ? card(t('fl.unassigned'), p.unassigned, () => CD.go('device', { date, deviceId: null, typeId })) : null) : h('p.dim', t('fl.noDev')),
       h('h3.sech', t('fl.lists')), h('.dgrid', card(t('fl.laggards'), p.lists.laggards, () => CD.peopleList('laggards')), card(t('fl.dropped'), p.lists.dropped, () => CD.peopleList('dropped')), card(t('fl.maint'), p.lists.maintenance, () => CD.peopleList('maintenance'))));
   });
 };
@@ -83,6 +85,31 @@ CD.lvOption = (opt, lv) => { const o = CD.LV[lv]; if (o) { if (!opt.dataset.base
 CD.lvPaint = async (date, { type, dev }) => { const l = await CD.call('dayLoad', { date }).catch(() => null); if (!l) return; const paint = (sel, list) => { if (!sel) return; for (const o of sel.options) if (o.value) CD.lvOption(o, lvOf(list, Number(o.value))); const sync = () => { const o = sel.selectedOptions[0]; sel.style.color = o && o.dataset.lv ? CD.LV[o.dataset.lv].color : ''; }; if (!sel._lv) { sel._lv = 1; sel.addEventListener('change', sync); } sync(); }; paint(type, l.types); paint(dev, l.devices); return l; };
 CD.lvChip = (lv) => h('span.pill', { style: { color: (CD.LV[lv] || CD.LV.green).color, borderColor: 'currentColor' } }, CD.lvText(lv));
 const lvOf = (list, id) => { const x = (list || []).find((r) => r.id === id); return x ? x.level : 'green'; };
+
+// ---- right-click → "new patient": quick form (name + phone) that also books a session right there; "full form" opens the whole editor
+CD.addDict({ 'fl.newPat': 'مراجع جديد', 'fl.newPatTitle': 'مراجع جديد', 'fl.saveAdd': 'حفظ وإضافة الجلسة هنا', 'fl.saveOnly': 'حفظ المراجع فقط', 'fl.fullForm': 'النموذج الكامل…', 'fl.newPatDone': 'أُضيف المراجع والجلسة', 'fl.newPatSaved': 'أُضيف المراجع', 'fl.when': 'الموعد' },
+  { 'fl.newPat': 'New patient', 'fl.newPatTitle': 'New patient', 'fl.saveAdd': 'Save and add the session here', 'fl.saveOnly': 'Save patient only', 'fl.fullForm': 'Full form…', 'fl.newPatDone': 'Patient and session added', 'fl.newPatSaved': 'Patient added', 'fl.when': 'When' });
+CD.quickPatient = async (o = {}) => {
+  const cat = CD.catalogCache || (CD.catalogCache = await CD.call('getCatalog').catch(() => null)); const types = ((cat && cat.types) || []).filter((x) => x.active !== 0); const devs = ((cat && cat.devices) || []).filter((d) => d.active !== 0);
+  const name = h('input.in', { placeholder: t('name') }), phone = h('input.in', { placeholder: t('phoneL'), inputmode: 'tel', value: o.phone || '' }), age = h('input.in', { type: 'number', placeholder: t('age') }), gender = h('select.in', h('option', { value: 'M' }, t('male')), h('option', { value: 'F' }, t('female')));
+  const hour0 = o.hour != null ? o.hour : (() => { const hr = CD.S.hours && CD.S.hours[new Date((o.date || CD.iso()) + 'T12:00:00').getDay()]; return hr && hr.on ? parseInt(hr.open, 10) : 9; })();
+  const when = h('input.in', { type: 'time', value: String(hour0).padStart(2, '0') + ':00' });
+  const typeSel = h('select.in', types.map((x) => h('option', { value: x.id, selected: x.id === o.typeId }, x.name))), devSel = h('select.in');
+  const fillDevs = () => { const tid = Number(typeSel.value); CD.mount(devSel, [h('option', { value: '' }, '—'), ...devs.filter((d) => (d.typeIds || []).includes(tid)).map((d) => h('option', { value: d.id, selected: d.id === o.deviceId }, d.name))]); };
+  typeSel.addEventListener('change', fillDevs); fillDevs();
+  const wantSession = !!o.date && types.length > 0;
+  const save = (book) => CD.try(async () => {
+    if (!name.value.trim() || !phone.value.trim()) throw new Error(t('req'));
+    const r = await CD.call('savePatient', { patient: { name: name.value.trim(), age: age.value ? Number(age.value) : null, gender: gender.value, phone: CD.nd(phone.value.trim()) } });
+    if (book) await CD.call('addBooking', { patientId: r.id, typeId: Number(typeSel.value), date: o.date, hour: Number((when.value || '09:00').slice(0, 2)), deviceId: devSel.value ? Number(devSel.value) : null });
+    CD.toast(book ? t('fl.newPatDone') : t('fl.newPatSaved')); d.close_(); o.onDone && o.onDone(r.id); CD.refresh();
+  });
+  const sess = wantSession ? h('div', { style: { display: 'grid', gap: '8px' } }, h('small.dim', `${t('fl.when')}: ${CD.fmtD(o.date)}`), h('.grid.g3', h('label', { style: { display: 'grid', gap: '4px' } }, h('small.dim', t('type')), typeSel), h('label', { style: { display: 'grid', gap: '4px' } }, h('small.dim', t('device')), devSel), h('label', { style: { display: 'grid', gap: '4px' } }, h('small.dim', t('time')), when))) : null;
+  const d = CD.dialog({ title: t('fl.newPatTitle'), cls: 'sm', body: h('div', { style: { display: 'grid', gap: '10px' } }, name, phone, h('.grid.g2', age, gender), sess),
+    foot: (close) => [h('button.btn', { onclick: () => { close(); CD.editPatient(null, o.onDone); } }, t('fl.fullForm')), wantSession ? h('button.btn', { onclick: () => save(false) }, t('fl.saveOnly')) : null, h('button.btn.pri', { onclick: () => save(wantSession) }, ic('plus', 's'), wantSession ? t('fl.saveAdd') : t('save'))] });
+  setTimeout(() => name.focus(), 60); return d;
+};
+CD.newPatientItem = (o) => (CD.perms.includes('add_patient') ? { icon: 'users', label: t('fl.newPat'), onclick: () => CD.quickPatient(o) } : null);
 
 // ---- right-click on an hour → add-session window: search patient → profile preview → add / paste
 CD.addSessionDialog = ({ date, hour, typeId, deviceId, onDone }) => CD.try(async () => {
@@ -139,7 +166,7 @@ CD.views.device = async (root, arg) => {
     !open && b.ui !== 'done' && { icon: 'check', label: t('fl.start'), onclick: () => timerPop(b, document.querySelector(`.pc[data-id="${b.id}"]`)) },
     open && { icon: 'refresh', label: t('fl.restart'), onclick: act(() => CD.call('restartTimer', { id: b.id })) }, open && { icon: 'check', label: t('fl.finish'), onclick: act(() => CD.call('finishSession', { id: b.id }), t('ok')) },
     (b.ui === 'late' || b.ui === 'upcoming') && { icon: 'check', label: t('fl.markArr'), onclick: act(() => CD.call('markArrived', { id: b.id, arrived: true })) }, b.ui === 'arrived' && { icon: 'x', label: t('fl.unArr'), onclick: act(() => CD.call('markArrived', { id: b.id, arrived: false })) },
-    { sep: 1 }, { icon: 'pencil', label: t('fl.addVisit'), onclick: () => addVisit(b.hour, b.patient_id) }, devs.length && b.ui !== 'done' && { icon: 'swap', label: t('fl.changeDev'), sub: devs.map((d) => ({ label: d.name, onclick: act(() => CD.call('updateBooking', { id: b.id, deviceId: d.id }), t('fl.moved')) })) },
+    { sep: 1 }, { icon: 'pencil', label: t('fl.addVisit'), onclick: () => addVisit(b.hour, b.patient_id) }, CD.newPatientItem({ date, hour: b.hour, typeId, deviceId, onDone: () => reload() }), devs.length && b.ui !== 'done' && { icon: 'swap', label: t('fl.changeDev'), sub: devs.map((d) => ({ label: d.name, onclick: act(() => CD.call('updateBooking', { id: b.id, deviceId: d.id }), t('fl.moved')) })) },
     { sep: 1 }, { icon: 'x', label: t('fl.cut'), onclick: () => { CD.clip = { mode: 'cut', id: b.id, name: b.patient_name }; CD.toast(`${b.patient_name} — ${t('ctx.clipCut')}`); } }, { icon: 'save', label: t('fl.copy'), onclick: () => { CD.clip = { mode: 'copy', id: b.id, name: b.patient_name }; CD.toast(`${b.patient_name} — ${t('ctx.clipCopy')}`); } },
     b.ui !== 'done' && { icon: 'trash', label: t('fl.del'), danger: true, onclick: async () => { if (await CD.confirm(t('fl.delAsk'), { danger: true })) act(() => CD.call('cancelBooking', { id: b.id }))(); } }]; };
   const addVisit = (hour, patientId) => { const go = (pid) => act(() => CD.call('addBooking', { patientId: pid, typeId, date, hour, deviceId }), t('ok'))(); if (patientId) go(patientId); else CD.pickPatient((r) => go(r.id)); };
@@ -162,7 +189,7 @@ CD.views.device = async (root, arg) => {
     for (let hr = from; hr <= to; hr++) {
       const x = hmap.get(hr) || { h: hr, label: (hr % 12 || 12) + (hr < 12 ? ' ص' : ' م'), inWork: false, count: 0, red: false, current: false }; const list = (byHour.get(hr) || []).sort((a, b) => a.turn - b.turn);
       const row = h('.hr', { class: (x.inWork ? 'work ' : 'off ') + (x.red ? 'red ' : '') + (x.current ? 'now' : ''), 'data-h': hr }, h('.hl', h('b', x.label), x.count ? h('span.pill', x.count) : null), h('.hc', list.map(circle)), !x.inWork ? h('small.dim.cl', t('fl.closed')) : null);
-      if (x.inWork) { dropOn(row, () => ({ date, hour: hr, deviceId })); CD.onCtx(row, () => [CD.clip && { icon: 'download', label: `${t('ctx.pasteHere')} (${CD.clip.name})`, onclick: () => paste(hr) }, { icon: 'plus', label: t('fl.addSess'), onclick: () => CD.addSessionDialog({ date, hour: hr, typeId, deviceId, onDone: () => reload() }) }]); }
+      if (x.inWork) { dropOn(row, () => ({ date, hour: hr, deviceId })); CD.onCtx(row, () => [CD.clip && { icon: 'download', label: `${t('ctx.pasteHere')} (${CD.clip.name})`, onclick: () => paste(hr) }, { icon: 'plus', label: t('fl.addSess'), onclick: () => CD.addSessionDialog({ date, hour: hr, typeId, deviceId, onDone: () => reload() }) }, CD.newPatientItem({ date, hour: hr, typeId, deviceId, onDone: () => reload() })]); }
       rows.push(row);
     }
     const mainEl = document.querySelector('#main'), keep = mainEl ? mainEl.scrollTop : 0; CD.mount(tl, rows); if (tl._scrolled && mainEl) mainEl.scrollTop = keep; const cur = tl.querySelector('.hr.now') || tl.querySelector('.hr.work'); if (cur && !tl._scrolled) { tl._scrolled = true; cur.scrollIntoView({ block: 'center' }); }

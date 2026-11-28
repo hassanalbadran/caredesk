@@ -13,7 +13,7 @@ CD.addDict({
 });
 const hue = (i) => `hsl(${(i * 67 + 150) % 360} 48% 36%)`;
 
-CD.packagesOf = (pkgs) => { const m = new Map(); pkgs.forEach((s) => { const k = Number(s.type.value); const c = Number(s.count.value) || 1; const dev = s.dev.value ? Number(s.dev.value) : null, th = s.th.value ? Number(s.th.value) : null; if (m.has(k)) m.get(k).count += c; else m.set(k, { typeId: k, count: c, deviceId: dev, therapistId: th }); }); return [...m.values()]; };
+CD.packagesOf = (pkgs) => { const m = new Map(); pkgs.forEach((s) => { const k = Number(s.type.value); const c = Number(s.count.value) || 1; const dev = s.dev.value ? Number(s.dev.value) : null, th = s.th.value ? Number(s.th.value) : null; const st = s.time && s.time.value ? s.time.value : undefined; if (m.has(k)) m.get(k).count += c; else m.set(k, { typeId: k, count: c, deviceId: dev, therapistId: th, startTime: st }); }); return [...m.values()]; };
 
 CD.sessionPlanner = async ({ packages, startDate, tags = [], patientId = null, onApply }) => {
   if (!packages.length) return CD.toast(t('pl.noPkg'), 'bad');

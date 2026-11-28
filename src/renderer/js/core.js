@@ -99,10 +99,41 @@ CD.applyCursor = (on) => {
   const r = document.documentElement.style;
   if (on) { r.setProperty('--cur', `url("data:image/svg+xml;utf8,${arrow}") 5 3, default`); r.setProperty('--curp', `url("data:image/svg+xml;utf8,${hand}") 13 13, pointer`); } else { r.removeProperty('--cur'); r.removeProperty('--curp'); }
 };
+// Whole-interface scale: the user's size setting times an automatic fit (small / high-DPI screens shrink so the layout keeps the same room as on 1280x720).
+// Uses the real browser zoom (Electron webContents zoom) so mouse coordinates, drag & drop, popovers and menus stay exact.
+CD._zoom = 1;
+CD.applyZoom = () => {
+  const s = CD.S || {}; const user = Math.max(0.7, Math.min(1.6, Number(s.fontScale) || 1));
+  const w = innerWidth * CD._zoom, hgt = innerHeight * CD._zoom;               // the window in unzoomed CSS pixels
+  const fit = s.autoFit === false ? 1 : Math.max(0.65, Math.min(1, w / 1180, hgt / 700));
+  const z = Math.round(user * fit * 100) / 100;
+  if (Math.abs(z - CD._zoom) < 0.01) return;
+  CD._zoom = z; Promise.resolve(CD.sys('zoom', { f: z })).catch(() => { CD._zoom = 1; });
+};
+let zt = 0; addEventListener('resize', () => { clearTimeout(zt); zt = setTimeout(() => CD.applyZoom(), 150); });
+addEventListener('keydown', (e) => { // Ctrl + / Ctrl - / Ctrl 0: quick interface size
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || !CD.S || !CD.user) return; const k = e.key; if (!['+', '=', '-', '_', '0'].includes(k)) return; e.preventDefault();
+  const cur = Number(CD.S.fontScale) || 1; const nx = k === '0' ? 1 : Math.max(0.7, Math.min(1.6, Math.round((cur + (k === '-' || k === '_' ? -0.05 : 0.05)) * 100) / 100));
+  CD.S.fontScale = nx; CD.applyZoom(); CD.call('saveLook', { patch: { fontScale: nx } }).catch(() => {});
+});
+// Look packs = font + theme bundles. "custom" uses fonts the user dropped into <data>/fonts.
+CD.PACKS = { classic: { ui: 'Cairo', head: 'Cairo', theme: null }, zain: { ui: 'Zain', head: 'Zain', theme: null }, editorial: { ui: 'Inter', head: '"Playfair Display"', theme: 'sand' } };
+CD.customFonts = [];
+CD.loadCustomFonts = async () => {
+  try { const list = await CD.sys('customFonts'); CD.customFonts = [];
+    for (const f of list || []) { try { const ff = new FontFace(f.family, `url(${f.url})`); await ff.load(); document.fonts.add(ff); CD.customFonts.push(f.family); } catch { /* bad font file: skip */ } }
+  } catch { /* older shell / harness */ }
+  CD.applyFonts(); return CD.customFonts;
+};
+CD.applyFonts = () => {
+  const s = CD.S || {}, r = document.documentElement; let ui = 'Cairo', head = '';
+  if (s.fontPack === 'custom') { ui = s.fontUi ? `"${s.fontUi}"` : 'Cairo'; head = s.fontHead ? `"${s.fontHead}"` : ui; } else { const p = CD.PACKS[s.fontPack] || CD.PACKS.classic; ui = p.ui; head = p.head; }
+  r.style.setProperty('--ff-ui', ui); r.style.setProperty('--ff-head', head || ui);
+};
 CD.applyLook = () => {
   const s = CD.S, r = document.documentElement; CD.setLang(s.lang);
   const th = s.theme === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : s.theme; r.dataset.theme = th;
-  r.dataset.motion = s.reduceMotion ? 'off' : 'on'; r.style.setProperty('--fs', s.fontScale || 1); CD.applyCursor(!!s.customCursor);
+  r.dataset.motion = s.reduceMotion ? 'off' : 'on'; r.style.setProperty('--fs', 1); CD.applyFonts(); CD.applyZoom(); CD.applyCursor(!!s.customCursor);
 };
 // Keyboard-wedge barcode scanner: fast key bursts ending with Enter (works anywhere outside text fields).
 (() => { let buf = '', last = 0; document.addEventListener('keydown', (e) => {

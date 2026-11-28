@@ -1,7 +1,7 @@
 {
   "name": "caredesk",
   "productName": "CareDesk",
-  "version": "0.1.0-beta.2",
+  "version": "1.1.0",
   "description": "CareDesk — clinic bookings & reminders",
   "author": "Elaph Adnan",
   "license": "MIT",
@@ -10,12 +10,15 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test tests/*.test.js",
-    "dist": "node scripts/make-integrity.js && electron-builder --win --x64 --publish never",
-    "test:ui": "node tests/ui/smoke.js && node tests/ui/flows.js && node tests/ui/floor.js && node tests/ui/load.js && node tests/ui/diag.js && node tests/ui/ctx.js && node tests/ui/phone.js",
+    "dist": "node scripts/make-integrity.js && node scripts/make-doctor-catalog.js && electron-builder --win --x64 --publish never",
+    "test:ui": "node tests/ui/smoke.js && node tests/ui/flows.js && node tests/ui/floor.js && node tests/ui/load.js && node tests/ui/diag.js && node tests/ui/ctx.js && node tests/ui/phone.js && node tests/ui/v1.js && node tests/ui/v2.js",
     "audit": "npm audit --omit=dev"
   },
   "dependencies": {
-    "@fontsource/cairo": "^5.2.0"
+    "@fontsource/cairo": "^5.2.0",
+    "@fontsource/inter": "^5.2.0",
+    "@fontsource/playfair-display": "^5.2.0",
+    "@fontsource/zain": "^5.2.0"
   },
   "devDependencies": {
     "electron": "45.3.4",
@@ -34,19 +37,40 @@
       "src/**/*",
       "config/**/*",
       "package.json",
-      "node_modules/@fontsource/cairo/**/*"
+      "node_modules/@fontsource/cairo/**/*",
+      "node_modules/@fontsource/zain/**/*",
+      "node_modules/@fontsource/inter/**/*",
+      "node_modules/@fontsource/playfair-display/**/*",
+      "build/icon.png"
     ],
     "win": {
       "target": [
         "nsis"
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "language": "1025"
-    }
+      "language": "1025",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "include": "build/installer.nsh"
+    },
+    "extraFiles": [
+      {
+        "from": "doctor",
+        "to": "Doctor",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "Doctor/doctor.ico"
+      }
+    ]
   }
 }

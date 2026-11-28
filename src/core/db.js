@@ -39,7 +39,7 @@ class DB {
     const cols = (t) => new Set(this.all(`PRAGMA table_info(${t})`).map((c) => c.name));
     const add = (t, c, def) => { if (!cols(t).has(c)) this.h.exec(`ALTER TABLE ${t} ADD COLUMN ${c} ${def}`); };
     // v2 (floor view): arrival + session timers survive restarts; auto tags are distinguishable from manual ones
-    add('bookings', 'arrived_at', 'INTEGER'); add('bookings', 'timer_start', 'INTEGER'); add('bookings', 'timer_min', 'INTEGER'); add('patient_tags', 'auto', 'INTEGER NOT NULL DEFAULT 0');
+    add('patients', 'pref_time', 'TEXT'); add('bookings', 'arrived_at', 'INTEGER'); add('bookings', 'timer_start', 'INTEGER'); add('bookings', 'timer_min', 'INTEGER'); add('patient_tags', 'auto', 'INTEGER NOT NULL DEFAULT 0');
     this.h.exec("UPDATE tags SET effect='vip' WHERE name='VIP' AND system=0 AND effect=''; UPDATE tags SET effect='committed',system=1 WHERE name='ملتزم' AND effect=''");
     for (const t of DEFAULT_TAGS) if (!this.get('SELECT 1 x FROM tags WHERE effect=? AND effect!=\'\'', t.effect) && t.effect) this.run('INSERT INTO tags(name,name_en,tone,effect,system,color) VALUES(?,?,?,?,?,?)', t.name, t.name_en, t.tone, t.effect, t.system, t.color);
     this.h.prepare("UPDATE settings SET value='2' WHERE key='schema_version'").run();

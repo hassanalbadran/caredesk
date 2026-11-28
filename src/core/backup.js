@@ -7,7 +7,7 @@ const KEEP_SETTINGS = new Set(['lic', 'schema_version', 'account']); // never ex
 const csv = (rows) => { if (!rows.length) return '﻿'; const cols = Object.keys(rows[0]); const q = (v) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }; return '﻿' + [cols.join(','), ...rows.map((r) => cols.map((c) => q(r[c])).join(','))].join('\r\n'); };
 const stamp = (d = new Date()) => d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
 
-function exportBackup(db, { accountId = 'local', appVersion = '0.1.0-beta.2', when = new Date() } = {}) {
+function exportBackup(db, { accountId = 'local', appVersion = '1.1.0', when = new Date() } = {}) {
   const entries = []; const counts = {};
   for (const t of TABLES) { const rows = db.all(`SELECT * FROM ${t}`); counts[t] = rows.length; entries.push({ name: `data/${t}.json`, data: JSON.stringify(rows) }); }
   const settings = db.all('SELECT key,value FROM settings').filter((r) => !KEEP_SETTINGS.has(r.key));

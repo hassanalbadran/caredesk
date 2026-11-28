@@ -63,7 +63,7 @@ CD.views.today = (root, arg) => {
     return h('tr', { class: on ? 'done' : '' },
       h('td', `${b.seq || ''}/${b.total || ''}`), h('td', h('b', b.patient_name), ' ', CD.tagChips(b.tags), dim ? h('span.pill', b.patient_status) : null), h('td.dim', { style: { direction: 'ltr', textAlign: 'start' } }, b.phone),
       h('td', st.showAll ? h('div', h('small.dim', CD.fmtD(b.date)), h('div', CD.fmtT(b.time))) : CD.fmtT(b.time)), h('td', b.type_name || '—'), h('td', b.device_name || '—'), h('td', b.therapist_name || '—'), h('td', att),
-      h('td', h('.row', ...[['eye', 'profile', () => CD.openProfile(b.patient_id)], ['pencil', 'editAll', () => CD.editPatient(b.patient_id)], ['chat', 'wa', () => CD.waPatient(b.patient_id)], ['printer', 'print', () => CD.printMenu(b.patient_id)]].map(([i, tip, fn]) => h('button.btn.ico.sm', { 'data-tip': t(tip), onclick: fn, html: ic(i, 's') })))));
+      h('td', h('.row', ...[['eye', 'profile', () => CD.openProfile(b.patient_id)], ['pencil', 'editAll', () => CD.editPatient(b.patient_id)], ['chat', 'wa', () => CD.waPatient(b.patient_id)], ...(b.phone || b.phone2 ? [['phone', 'call', () => CD.callPatient(b.patient_id)]] : []), ['printer', 'print', () => CD.printMenu(b.patient_id)]].map(([i, tip, fn]) => h('button.btn.ico.sm', { 'data-tip': t(tip), onclick: fn, html: ic(i, 's') })))));
   };
   async function load() {
     if (st.loading || st.done) return; st.loading = true;

@@ -34,14 +34,14 @@ function therapistOk(th, date, s, e, win) {
   const a = th.start ? toMin(th.start) : win.open, b = th.end ? toMin(th.end) : win.close;
   return s >= a && e <= b;
 }
-function conflictsFor(ctx, { date, s, e, deviceId, therapistId, patientId }, ignore = []) {
+function conflictsFor(ctx, { date, s, e, deviceId, therapistId, patientId, patientPad = 0 }, ignore = []) {
   const out = [];
   for (const b of ctx.occ.on(date)) {
     if (ignore.includes(b.id) || b.status === 'cancelled') continue;
-    if (!overlap(s, e, b.s, b.e)) continue;
-    if (deviceId && b.device_id === deviceId) out.push({ kind: 'device', booking: b });
-    if (therapistId && b.therapist_id === therapistId) out.push({ kind: 'therapist', booking: b });
-    if (patientId && b.patient_id === patientId) out.push({ kind: 'patient', booking: b });
+    const hit = overlap(s, e, b.s, b.e);
+    if (hit && deviceId && b.device_id === deviceId) out.push({ kind: 'device', booking: b });
+    if (hit && therapistId && b.therapist_id === therapistId) out.push({ kind: 'therapist', booking: b });
+    if (patientId && b.patient_id === patientId && (hit || (patientPad && overlap(s - patientPad, e + patientPad, b.s, b.e)))) out.push({ kind: 'patient', booking: b });
   }
   return out;
 }
@@ -55,7 +55,7 @@ function eligibleDay(ctx, date, group, anchor) {
   return win;
 }
 // Find a free slot on one day. prefer: 'early' | 'late'. fromMin: lower bound for start. exact: try this start first.
-function findSlot(ctx, { date, duration, deviceId, therapistId, patientId, from = 0, prefer = 'early', exact = null, ignore = [] }, win = dayWindow(ctx.settings, date)) {
+function findSlot(ctx, { date, duration, deviceId, therapistId, patientId, from = 0, prefer = 'early', exact = null, target = null, patientPad = 0, ignore = [] }, win = dayWindow(ctx.settings, date)) {
   if (!win) return null;
   const step = ctx.settings.slotStep || 15;
   const th = therapistId ? ctx.therapists.find((t) => t.id === therapistId) : null;
@@ -65,12 +65,16 @@ function findSlot(ctx, { date, duration, deviceId, therapistId, patientId, from 
     const e = s + duration;
     if (s < win.open || e > win.close || s < from) return false;
     if (!therapistOk(th, date, s, e, win)) return false;
-    return conflictsFor(ctx, { date, s, e, deviceId, therapistId, patientId }, ignore).length === 0;
+    return conflictsFor(ctx, { date, s, e, deviceId, therapistId, patientId, patientPad }, ignore).length === 0;
   };
   if (exact != null && ok(exact)) return { time: fromMin(exact), end: fromMin(exact + duration) };
   const starts = [];
   for (let s = win.open; s + duration <= win.close; s += step) starts.push(s);
-  if (prefer === 'late') starts.reverse();
+  if (target != null) { // fixed preferred hour: exactly that time, else the closest later slot, else the closest earlier one
+    const t = Number(target); const later = starts.filter((x) => x >= t), before = starts.filter((x) => x < t).reverse();
+    if (ok(t)) return { time: fromMin(t), end: fromMin(t + duration) };
+    starts.splice(0, starts.length, ...later, ...before);
+  } else if (prefer === 'late') starts.reverse();
   for (const s of starts) if (ok(s)) return { time: fromMin(s), end: fromMin(s + duration) };
   return null;
 }
@@ -90,13 +94,15 @@ function distribute(ctx, o) {
     if (!win) { cursor = addDays(cursor, 1); continue; }
     let todays = 0, prevEnd = 0;
     for (let k = 0; k < perDay && placed.length < o.count; k++) {
+      const fixed = o.startTime ? toMin(o.startTime) : null;
       const slot = findSlot(ctx, { date: cursor, duration, deviceId: o.deviceId, therapistId: o.therapistId, patientId: o.patientId,
-        from: k ? prevEnd + minGapMin : 0, prefer: o.prefer || 'early', exact: k === 0 ? preferred : null }, win);
+        from: k ? prevEnd + minGapMin : 0, prefer: o.prefer || 'early', exact: k === 0 ? preferred : null,
+        target: fixed != null ? (k ? Math.max(fixed, prevEnd + minGapMin) : fixed) : null, patientPad: minGapMin }, win);
       if (!slot) break;
       const row = { id: -(placed.length + 1), patient_id: o.patientId, device_id: o.deviceId || null, therapist_id: o.therapistId || null,
         type_id: o.typeId, date: cursor, time: slot.time, end_time: slot.end, status: 'booked' };
       ctx.occ.add(row); placed.push({ ...row, seq: (o.startSeq || 1) + placed.length });
-      if (k === 0 && preferred == null) preferred = toMin(slot.time);
+      if (k === 0 && preferred == null && !o.startTime) preferred = toMin(slot.time);
       prevEnd = toMin(slot.end); todays++;
     }
     if (todays) { lastDay = cursor; cursor = addDays(cursor, gapDays); } else cursor = addDays(cursor, 1);
@@ -120,15 +126,20 @@ function distributePattern(ctx, o) {
     for (const typeId of tg.types) {
       const r = remain.get(typeId); if (!r || r.left <= 0) continue;
       const type = ctx.types.get(typeId); const dur = type.duration_min;
-      let slot = null;
+      let slot = null; const fixed = r.startTime || o.startTime; const gap = type.min_gap_min || 0;
       while (!slot && tries++ < 60) {
         const win = dayWindow(ctx.settings, date);
-        slot = win && findSlot(ctx, { date, duration: dur, deviceId: r.deviceId, therapistId: r.therapistId, patientId: o.patientId, from: prevEnd, prefer: o.prefer || 'early' }, win);
+        // 1st try: after the patient's previous session of the day; 2nd: anywhere that day not touching it (so two different sessions share a day whenever any room exists)
+        for (const from of (prevEnd ? [prevEnd, 0] : [0])) {
+          slot = win && findSlot(ctx, { date, duration: dur, deviceId: r.deviceId, therapistId: r.therapistId, patientId: o.patientId, from,
+            prefer: o.prefer || 'early', target: fixed ? Math.max(toMin(fixed), from) : null, patientPad: gap }, win);
+          if (slot) break;
+        }
         if (!slot) { date = addDays(date, 1); prevEnd = 0; }
       }
       if (!slot) { unplaced += r.left; left -= r.left; r.left = 0; continue; }
       const row = { id: -(placed.length + 1), patient_id: o.patientId, device_id: r.deviceId || null, therapist_id: r.therapistId || null, type_id: typeId, date, time: slot.time, end_time: slot.end, status: 'booked' };
-      ctx.occ.add(row); placed.push(row); r.left--; left--; prevEnd = toMin(slot.end) + (type.min_gap_min || 0);
+      ctx.occ.add(row); placed.push(row); r.left--; left--; prevEnd = Math.max(prevEnd, toMin(slot.end) + (type.min_gap_min || 0));
     }
   }
   placed.forEach((p) => ctx.occ.remove(p.id));

@@ -5,13 +5,14 @@ const { Occupancy, distribute, detectConflicts, suggest, freeGaps, suggestCompac
 const M = require('./messages');
 const { ROLE_PERMS } = require('./defaults');
 
+const { parseCaller, sameNumber } = require('./callerid');
 const hash = (code, salt) => crypto.scryptSync(String(code), salt, 32).toString('hex');
 const PERM_OF = { // method -> permission needed (others need no permission)
   savePatient: 'add_patient', dropPatient: 'edit_patient', archivePatient: 'edit_patient', restorePatient: 'edit_patient', setPatientTags: 'edit_patient',
   deletePatient: 'delete_patient', setAttendance: 'mark_attendance', updateBooking: 'edit_patient', cancelBooking: 'cancel_session',
   saveSettings: 'manage_settings', saveLook: 'settings_look', importPatients: 'import_export', exportPatients: 'import_export', saveCatalog: 'manage_settings', deleteCatalog: 'manage_settings', saveSecretary: 'manage_staff',
   monthCalendar: 'view_calendar', dayStats: 'view_stats', absentees: 'view_stats', listAudit: 'view_audit',
-  compactionApply: 'edit_patient', homeMonth: 'view_calendar', managerStats: 'view_stats', typePage: 'view_calendar', deviceDay: 'view_calendar', dayLoad: 'view_calendar', dayLoads: 'view_calendar', moveBooking: 'reschedule', addBooking: 'edit_patient', markArrived: 'mark_attendance', startTimer: 'mark_attendance', restartTimer: 'mark_attendance', setTimerMinutes: 'mark_attendance', finishSession: 'mark_attendance', listTimers: 'view_today', setMaintenance: 'edit_patient', patientList: 'view_today', planFromExamples: 'add_patient', planFromClass: 'add_patient', planFromPattern: 'add_patient', rememberPattern: 'add_patient', patternList: 'add_patient', reminderList: 'use_tools', reminderUpcoming: 'use_tools', callScript: 'use_tools', createRatingLinks: 'use_tools', setWaStatus: 'use_tools'
+  compactionApply: 'edit_patient', homeMonth: 'view_calendar', managerStats: 'view_stats', typePage: 'view_calendar', deviceDay: 'view_calendar', dayLoad: 'view_calendar', dayLoads: 'view_calendar', moveBooking: 'reschedule', addBooking: 'edit_patient', retimePatient: 'edit_patient', markArrived: 'mark_attendance', startTimer: 'mark_attendance', restartTimer: 'mark_attendance', setTimerMinutes: 'mark_attendance', finishSession: 'mark_attendance', listTimers: 'view_today', setMaintenance: 'edit_patient', patientList: 'view_today', planFromExamples: 'add_patient', planFromClass: 'add_patient', planFromPattern: 'add_patient', rememberPattern: 'add_patient', patternList: 'add_patient', reminderList: 'use_tools', reminderUpcoming: 'use_tools', callScript: 'use_tools', createRatingLinks: 'use_tools', setWaStatus: 'use_tools'
 };
 const MONEY = new Set(['price', 'income', 'loss', 'revenue', 'paid', 'fee']);
 function redactMoney(v) { // users without view_income never receive amounts
@@ -71,7 +72,7 @@ class Service {
     this._log(actor, 'patients.import', 'patient', null, { added, skipped }); return { added, skipped, total: patients.length };
   }
   exportPatients(_a, _actor) { return this.db.all('SELECT name,phone,phone2,age,gender,address,notes,barcode code,status FROM patients ORDER BY name'); }
-  saveLook({ patch }, actor) { const ok = ['lang', 'theme', 'fontScale', 'customCursor', 'reduceMotion', 'sounds']; const p = {}; for (const k of ok) if (k in patch) p[k] = patch[k]; const s = this.db.saveSettings(p); this._log(actor, 'settings.look', 'settings', null, Object.keys(p)); return s; }
+  saveLook({ patch }, actor) { const ok = ['lang', 'theme', 'fontScale', 'autoFit', 'fontPack', 'fontUi', 'fontHead', 'customCursor', 'reduceMotion', 'sounds']; const p = {}; for (const k of ok) if (k in patch) p[k] = patch[k]; const s = this.db.saveSettings(p); this._log(actor, 'settings.look', 'settings', null, Object.keys(p)); return s; }
   saveSettings({ patch }, actor) { const s = this.db.saveSettings(patch); this._log(actor, 'settings.save', 'settings', null, Object.keys(patch)); return s; }
   getCatalog() {
     const d = this.db;
@@ -185,10 +186,10 @@ class Service {
     const d = this.db, now = this.now();
     return d.tx(() => {
       let id = p.id;
-      const f = [p.name, p.age ?? null, p.gender || 'M', p.phone || '', p.phone2 || '', p.address || '', p.notes || '', p.ext_ref || null, p.group_id || null];
-      if (id) d.run('UPDATE patients SET name=?,age=?,gender=?,phone=?,phone2=?,address=?,notes=?,ext_ref=?,group_id=?,updated_at=? WHERE id=?', ...f, now, id);
+      const f = [p.name, p.age ?? null, p.gender || 'M', p.phone || '', p.phone2 || '', p.address || '', p.notes || '', p.ext_ref || null, p.group_id || null, /^\d{2}:\d{2}$/.test(p.pref_time || '') ? p.pref_time : null];
+      if (id) d.run('UPDATE patients SET name=?,age=?,gender=?,phone=?,phone2=?,address=?,notes=?,ext_ref=?,group_id=?,pref_time=?,updated_at=? WHERE id=?', ...f, now, id);
       else {
-        id = Number(d.run('INSERT INTO patients(name,age,gender,phone,phone2,address,notes,ext_ref,group_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', ...f, now, now).lastInsertRowid);
+        id = Number(d.run('INSERT INTO patients(name,age,gender,phone,phone2,address,notes,ext_ref,group_id,pref_time,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', ...f, now, now).lastInsertRowid);
         d.run('UPDATE patients SET barcode=? WHERE id=?', this._nextBarcode(id), id);
       }
       if (Array.isArray(p.tagIds)) { d.run('DELETE FROM patient_tags WHERE patient_id=?', id); for (const t of p.tagIds) d.run('INSERT INTO patient_tags(patient_id,tag_id) VALUES(?,?)', id, t); }
@@ -231,6 +232,13 @@ class Service {
   _streak(pid, today) {
     const rows = this.db.all("SELECT status,date FROM bookings WHERE patient_id=? AND status!='cancelled' AND date<? ORDER BY date DESC,time DESC", pid, today);
     let n = 0; for (const r of rows) { if (r.status === 'attended') break; n++; } return n;
+  }
+  // Who is calling? Matches either phone number of any patient (any status) and returns today's sessions plus the next one, so the secretary can answer by name.
+  callerLookup({ number }) {
+    const n = parseCaller(number); if (!n) return { number: '', matches: [] }; const today = this.today();
+    const rows = this.db.all("SELECT id,name,phone,phone2,status FROM patients WHERE phone<>'' OR phone2<>''").filter((r) => sameNumber(r.phone, n) || sameNumber(r.phone2, n)).slice(0, 5);
+    const q = (extra, id, d) => this.db.all(`SELECT b.id,b.date,b.time,b.status,t.name type_name,d.name device_name FROM bookings b LEFT JOIN session_types t ON t.id=b.type_id LEFT JOIN devices d ON d.id=b.device_id WHERE b.patient_id=? AND b.status!='cancelled' AND ${extra} LIMIT 6`, id, d);
+    return { number: n, matches: rows.map((r) => ({ id: r.id, name: r.name, status: r.status, today: q('b.date=? ORDER BY b.time', r.id, today), next: q("b.date>? AND b.status='booked' ORDER BY b.date,b.time", r.id, today).slice(0, 1) })) };
   }
   searchPatients({ q = '', status = 'active', limit = 50 }) {
     const like = `%${String(q).trim()}%`;
@@ -314,8 +322,23 @@ class Service {
     return { conflicts: this.dayConflicts({ date: date || b.date }).filter((c) => c.bookingIds.includes(id)) };
   }
   cancelBooking({ id }, actor) { this.db.run("UPDATE bookings SET status='cancelled' WHERE id=?", id); this._log(actor, 'booking.cancel', 'booking', id); return true; }
-  slotCheck({ date, time, typeId, deviceId, therapistId, patientId, ignoreId }) { // used by the booking popup to colour options red
-    const ctx = this._ctx(date); const type = ctx.types.get(typeId); const dur = type ? type.duration_min : 30;
+  // Move all of a patient's upcoming sessions to one preferred start time (nearest free slot when that time is taken)
+  retimePatient({ id, time, fromDate = null }, actor) {
+    if (!/^\d{2}:\d{2}$/.test(time || '')) throw new Error('bad time');
+    const from = fromDate || this.today(); const ctx = this._ctx(from); const target = toMin(time);
+    const rows = this.db.all("SELECT * FROM bookings WHERE patient_id=? AND status='booked' AND date>=? ORDER BY date,time", id, from);
+    let moved = 0, failed = 0;
+    for (const b of rows) {
+      const dur = toMin(b.end_time) - toMin(b.time); const type = ctx.types.get(b.type_id); const pad = type ? type.min_gap_min || 0 : 0;
+      const win = dayWindow(ctx.settings, b.date); const slot = win && findSlot(ctx, { date: b.date, duration: dur, deviceId: b.device_id, therapistId: b.therapist_id, patientId: id, target, patientPad: pad, ignore: [b.id] }, win);
+      if (!slot) { failed++; continue; }
+      if (slot.time !== b.time) { this.db.run('UPDATE bookings SET time=?,end_time=? WHERE id=?', slot.time, slot.end, b.id); ctx.occ.move(b.id, b.date, slot.time, slot.end); moved++; }
+    }
+    this.db.run('UPDATE patients SET pref_time=? WHERE id=?', time, id); this._log(actor, 'patient.retime', 'patient', id, { time, moved, failed });
+    return { moved, failed, total: rows.length };
+  }
+  slotCheck({ date, time, typeId, deviceId, therapistId, patientId, ignoreId, others = [] }) { // used by the booking popup to colour options red; `others` = unsaved preview sessions of the same patient
+    const ctx = this._ctx(date); others.forEach((o, i) => { if (o && o.date === date && o.time && o.end_time) ctx.occ.add({ id: -9000 - i, patient_id: patientId || -1, device_id: o.device_id || null, therapist_id: o.therapist_id || null, type_id: o.type_id, date: o.date, time: o.time, end_time: o.end_time, status: 'booked' }); }); const type = ctx.types.get(typeId); const dur = type ? type.duration_min : 30;
     const win = dayWindow(ctx.settings, date); const issues = [];
     const { conflictsFor } = require('./scheduler');
     const s = toMin(time), e = s + dur;

@@ -20,6 +20,7 @@ const { chromium } = require('playwright'); const { start } = require('./harness
   await pg.click('tbody tr:first-child td:last-child button:nth-child(2)'); await pg.waitForTimeout(500);
   await pg.click('dialog .acc-item:nth-child(3) .acc-h'); await pg.waitForTimeout(400); await pg.click('dialog .btn.pri.sm'); await pg.waitForTimeout(600); await shot('planner-empty');
   await pg.click('.pl-pal .pl-chip'); const days = pg.locator('.pl-day:not(.off):not(.void)'); await days.nth(0).click(); await days.nth(2).click(); await pg.waitForTimeout(700); await shot('planner');
+  if (!(await pg.locator('.pl-chip.ghost').count())) { await pg.locator('dialog .row > .btn.ico').nth(0).click(); await pg.waitForTimeout(300); } // projection may fall in the next month (end-of-month dates)
   if (!(await pg.locator('.pl-chip.ghost').count())) throw new Error('planner produced no projection');
   await pg.click('dialog[open]:has(.pl-grid) .btn.pri'); await pg.waitForTimeout(600); await shot('editor'); await pg.setViewportSize({ width: 1360, height: 1700 }); await pg.waitForTimeout(300); await shot('editor-tall'); await pg.setViewportSize({ width: 1360, height: 860 });
   await pg.keyboard.press('Escape'); await pg.waitForTimeout(200);

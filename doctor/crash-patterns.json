@@ -1,0 +1,20 @@
+[
+ { "id": "missing_dll", "test": "code=0xc0000135|code=0xc0000139|code=0xc000007b|code=0xc0000142", "action": "reinstall",
+   "ar": "ملف مكتبة (DLL) ناقص أو غير متوافق، أو أن برنامج Visual C++ Runtime غير مثبّت.", "en": "A required DLL is missing or incompatible (or the Visual C++ runtime is not installed).",
+   "steps_ar": ["ثبّت «Microsoft Visual C++ Redistributable (x64)» من موقع مايكروسوفت.", "أعد تثبيت CareDesk من الملف الرسمي (بياناتك لا تُحذف)."], "steps_en": ["Install \"Microsoft Visual C++ Redistributable (x64)\" from Microsoft.", "Reinstall CareDesk from the official installer (your data is kept)."] },
+ { "id": "gpu_driver", "test": "module=(nvoglv64|nvwgf2umx|nvd3dumx|atio6axx|atidxx64|amdxx64|aticfx64|ig[0-9a-z]*icd64|igd[0-9a-z]*|igc64|d3d11|d3d12|dxgi|vulkan-1|libGLESv2|libEGL|vk_swiftshader)\\.dll", "action": "safe",
+   "ar": "تعطّل بسبب تعريف كرت الشاشة (GPU).", "en": "The app crashed inside the graphics driver (GPU).",
+   "steps_ar": ["شغّل CareDesk بالوضع الآمن (زر «تشغيل بالوضع الآمن» في هذه الأداة).", "حدّث تعريف كرت الشاشة من موقع الشركة المصنّعة."], "steps_en": ["Start CareDesk in Safe mode (the \"Safe mode\" button in this tool).", "Update the graphics driver from the manufacturer."] },
+ { "id": "corrupt_runtime", "test": "module=(ffmpeg|d3dcompiler_47|icudtl|v8_context_snapshot)\\.", "action": "reinstall",
+   "ar": "ملف من ملفات تشغيل البرنامج تالف.", "en": "A runtime file of the program is damaged.",
+   "steps_ar": ["أعد تثبيت CareDesk من الملف الرسمي (بياناتك لا تُحذف).", "إن تكرر ذلك: ارجع لبرنامج الحماية وتأكد أنه لا يحجر ملفات CareDesk."], "steps_en": ["Reinstall CareDesk from the official installer (your data is kept).", "If it repeats, check that your antivirus is not quarantining CareDesk files."] },
+ { "id": "fast_fail", "test": "code=0xc0000409|code=0xc0000374", "action": "reinstall",
+   "ar": "إغلاق فوري بسبب تلف في الذاكرة أو في ملفات البرنامج (غالباً ملف مُعدَّل أو تدخّل برنامج حماية).", "en": "Immediate termination caused by memory or file corruption (often a modified file or antivirus interference).",
+   "steps_ar": ["أعد تثبيت CareDesk من الملف الرسمي.", "أضف مجلد CareDesk لاستثناءات برنامج الحماية."], "steps_en": ["Reinstall CareDesk from the official installer.", "Add the CareDesk folder to your antivirus exclusions."] },
+ { "id": "access_violation", "test": "code=0xc0000005", "action": "safe",
+   "ar": "خطأ وصول للذاكرة (0xC0000005). أشيع أسبابه تعريف الشاشة أو برنامج حماية يحقن نفسه في التطبيق.", "en": "Memory access violation (0xC0000005). Most often the graphics driver or an antivirus injecting into the app.",
+   "steps_ar": ["جرّب «تشغيل بالوضع الآمن».", "عطّل مؤقتاً أي برنامج حماية/تحسين نظام وجرّب مجدداً."], "steps_en": ["Try \"Safe mode\".", "Temporarily disable antivirus / system optimisers and retry."] },
+ { "id": "hang", "test": "kind=hang", "action": "kill",
+   "ar": "التطبيق توقف عن الاستجابة سابقاً.", "en": "The app stopped responding earlier.",
+   "steps_ar": ["أغلق نسخة CareDesk العالقة (تفعل الأداة ذلك تلقائياً) ثم شغّله من جديد.", "إن تكرر: افحص القرص بحثاً عن أخطاء."], "steps_en": ["Close the stuck CareDesk process (this tool does it automatically) and start it again.", "If it repeats, check the disk for errors."] }
+]

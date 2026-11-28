@@ -63,6 +63,6 @@ document.addEventListener('contextmenu', (e) => {
     const fn = reg.get(n); if (fn) { const items = fn(e); if (items && items.length) return CD.ctx(e, items); }
     if (n.matches && n.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]),textarea')) return CD.ctx(e, fieldMenu(n));
   }
-  const sel = String(window.getSelection()); CD.ctx(e, [sel && { icon: 'save', label: t('ctx.copy'), onclick: () => document.execCommand('copy') }, { icon: 'refresh', label: t('ctx.refresh'), onclick: () => CD.refresh() }]);
+  const sel = String(window.getSelection()); CD.ctx(e, [sel && { icon: 'save', label: t('ctx.copy'), onclick: () => document.execCommand('copy') }, CD.newPatientItem ? CD.newPatientItem({ onDone: () => CD.refresh() }) : null, { icon: 'refresh', label: t('ctx.refresh'), onclick: () => CD.refresh() }]);
 });
 })();

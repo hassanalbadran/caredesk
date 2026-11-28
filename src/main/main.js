@@ -1,8 +1,8 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, Tray, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, Tray, nativeImage, Notification } = require('electron');
 const path = require('path'); const fs = require('fs');
 const { DB } = require('../core/db'); const { Service } = require('../core/service');
-const { License, getFingerprint } = require('../core/license');
+const { License, getFingerprint, getFingerprintAsync } = require('../core/license');
 const { exportBackup, importBackup } = require('../core/backup');
 const eclinic = require('../core/eclinic'); const M = require('../core/messages'); const barcode = require('../core/barcode');
 const cloud = require('./cloud'); const reporter = require('./reporter'); const diag = require('../core/diagnose'); const crypto = require('crypto');
@@ -13,6 +13,7 @@ const PAID = cfg.paid === true;
 const pubKey = (() => { try { return fs.readFileSync(path.join(__dirname, '../../config/license-public.pem'), 'utf8'); } catch { return ''; } })();
 const ALLOWED_EXTERNAL = /^(https:|whatsapp:|tel:|mailto:)/i;
 
+if (process.argv.includes('--safe')) { app.disableHardwareAcceleration(); app.commandLine.appendSwitch('disable-gpu'); } // CareDesk Doctor "Safe mode": no graphics driver involved
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 // Local DB lives in the install folder (spec); falls back to userData when that folder is read-only.
@@ -26,24 +27,104 @@ const GAS = () => cfg.gasUrl || String((db && db.settings && db.settings().gasUr
 const DEV_HASH = 'e48d2866776284d1a08812a4bca3af39c9cf2deea37bb6e00cad136f214524e1'; // sha256('cd-dev-v1:' + code); the code itself is never stored
 const report = (code, desc, solved = false) => { try { const c = diag.byCode(code); rep && rep.add({ code, name: c.name, desc: desc || c.en, solved, account: (cache.account && cache.account.username) || (actor && actor.name) || '' }); flushReports(); } catch { /* ignore */ } };
 const flushReports = () => { if (!rep || !GAS()) return; rep.flush(async (e) => { const r = await cloud.post(GAS(), { action: 'report', code: e.code, name: e.name, desc: e.desc, solved: e.solved, account: e.account, version: e.version, count: e.count, ts: e.ts, fp: fpInfo && fpInfo.fp }); return !!(r && r.ok); }); };
+
+// ---- updates: check -> download in background -> install silently when the app is closed (or on "restart now") ----
+const UPD_FILE = () => path.join(require('os').tmpdir(), 'CareDesk-Setup-update.exe');
+let pending = null, applying = false, sessionEnding = false;
+async function queryLatest() {
+  if (!/^[\w.-]+\/[\w.-]+$/.test(cfg.githubRepo || '')) return { ok: false, code: 'NO_REPO' };
+  const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 12000);
+  try { const r = await fetch(`https://api.github.com/repos/${cfg.githubRepo}/releases/latest`, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'CareDesk' }, signal: ctl.signal }); if (!r.ok) return { ok: false, code: 'HTTP_' + r.status };
+    const j = await r.json(); const ver = String(j.tag_name || '').replace(/^v/, ''); const asset = (j.assets || []).find((a) => /\.exe$/i.test(a.name));
+    return { ok: true, version: ver, current: app.getVersion(), newer: cmpVer(ver, app.getVersion()) > 0, notes: String(j.body || '').slice(0, 2000), url: asset ? asset.browser_download_url : '', size: asset ? asset.size : 0, digest: asset && /^sha256:[0-9a-f]{64}$/i.test(asset.digest || '') ? asset.digest.slice(7).toLowerCase() : '', page: j.html_url }; }
+  catch { return { ok: false, code: 'OFFLINE' }; } finally { clearTimeout(tm); }
+}
+async function fetchInstaller(url, want = {}) {
+  if (!/^https:\/\/(github\.com|objects\.githubusercontent\.com|release-assets\.githubusercontent\.com)\//.test(url || '') || !/\.exe(\?|$)/i.test(url)) throw new Error('BAD_UPDATE_URL');
+  const r = await fetch(url, { redirect: 'follow' }); if (!r.ok) throw new Error('HTTP_' + r.status);
+  const buf = Buffer.from(await r.arrayBuffer());
+  if (buf.length < 5e6 || buf[0] !== 0x4d || buf[1] !== 0x5a) throw new Error('BAD_INSTALLER'); // a real installer is tens of MB and starts with "MZ"
+  if (want.size && buf.length !== want.size) throw new Error('BAD_INSTALLER');
+  if (want.digest && crypto.createHash('sha256').update(buf).digest('hex') !== want.digest) throw new Error('BAD_INSTALLER');
+  const f = UPD_FILE(); fs.writeFileSync(f + '.part', buf); fs.renameSync(f + '.part', f); return f;
+}
+// restart=true: install now and reopen the app. restart=false: silent install after the app has closed (never while Windows is shutting down).
+function applyUpdate(restart) {
+  if (applying || !fs.existsSync(UPD_FILE())) return false; applying = true;
+  try { backupForUpdate(); const args = restart ? ['/S', '--force-run'] : ['/S']; require('child_process').spawn(UPD_FILE(), args, { detached: true, stdio: 'ignore' }).unref(); } catch (e) { applying = false; report('E901', 'update launch: ' + String(e && e.message).slice(0, 150)); return false; }
+  if (restart) { quitting = true; setTimeout(() => app.quit(), 400); } return true;
+}
+let autoBusy = false;
+async function autoUpdateTick() {
+  if (autoBusy || !app.isPackaged) return; autoBusy = true;
+  try {
+    if (db.settings().autoUpdate === false) return;
+    const r = await queryLatest(); if (!r.ok || !r.newer || !r.url) return;
+    if (!pending || pending.version !== r.version) { await fetchInstaller(r.url, { size: r.size, digest: r.digest }); pending = { version: r.version, notes: r.notes }; }
+    emit('update:ready', { version: r.version, notes: r.notes });
+  } catch { /* try again next round */ } finally { autoBusy = false; }
+}
+
+// ---- MicroSIP softphone link (click-to-call + incoming-call popup) ----
+const msCfg = () => ({ enabled: false, path: '', port: 3848, prefix: '', ...((db && db.settings().microsip) || {}) });
+let msInst = null; const microsip = () => msInst || (msInst = require('./microsip').create({ dir: path.join(app.getPath('userData'), 'microsip'), onIncoming: (n) => onIncomingCall(n), log: () => {} }));
+function onIncomingCall(number) {
+  if (!db || !svc) return; let r; try { r = svc.callerLookup({ number }); } catch { return; } if (!r.number) return;
+  const who = r.matches.length ? r.matches.map((m) => m.name).join(' / ') : 'رقم غير مسجّل · Unknown number';
+  try { if (Notification.isSupported()) new Notification({ title: 'CareDesk · ' + r.number, body: who, icon: path.join(__dirname, '../../build/icon.png') }).show(); } catch { /* ignore */ }
+  try { if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); if (!win.isVisible()) win.showInactive(); win.flashFrame(true); } } catch { /* ignore */ }
+  emit('call:incoming', r);
+}
+const msStart = async () => { const c = msCfg(); if (!c.enabled) { await microsip().stop(); return microsip().status(); } return microsip().start(c.port); };
+const msExe = () => require('./microsip').findExe(msCfg().path);
 const cache = { account: null };
 const emit = (ch, ...a) => { if (win && !win.isDestroyed()) win.webContents.send(ch, ...a); };
 
+// Device fingerprint. It used to run `reg` + three PowerShell/WMI calls SYNCHRONOUSLY before the window existed: right after a reboot WMI/PowerShell
+// need 10-30 s to wake up, so the app looked frozen or "did not open". Now: cached on disk, otherwise computed in the background after the window is up.
+const fpCacheFile = () => path.join(dataDir(), 'fp-cache.json');
+let fpPromise = null;
+function ensureFp() {
+  if (fpInfo) return Promise.resolve(fpInfo);
+  return fpPromise || (fpPromise = getFingerprintAsync().then((r) => { fpInfo = r; try { fs.writeFileSync(fpCacheFile(), JSON.stringify({ ...r, host: require('os').hostname() })); } catch { /* ignore */ } return r; }));
+}
+// The data folder sits next to the program, and an installer update replaces that folder. So before every update we keep a safe copy in the user profile
+// (VACUUM INTO = consistent copy of the live DB), and on start we put it back if the database file is gone.
+const backupDir = () => path.join(app.getPath('userData'), 'update-backup');
+function backupForUpdate() {
+  try {
+    const d = backupDir(); fs.rmSync(d, { recursive: true, force: true }); fs.mkdirSync(d, { recursive: true });
+    db.h.exec(`VACUUM INTO '${path.join(d, 'caredesk.sqlite').replace(/'/g, "''")}'`);
+    const fd = path.join(dataDir(), 'fonts'); if (fs.existsSync(fd)) fs.cpSync(fd, path.join(d, 'fonts'), { recursive: true });
+    fs.writeFileSync(path.join(d, 'ok.json'), JSON.stringify({ ts: Date.now(), version: app.getVersion() })); return true;
+  } catch (e) { report('E901', 'update backup: ' + String(e && e.message).slice(0, 150)); return false; }
+}
+function restoreIfMissing() {
+  try {
+    const d = backupDir(); const dst = path.join(dataDir(), 'caredesk.sqlite');
+    if (fs.existsSync(dst) || !fs.existsSync(path.join(d, 'ok.json')) || !fs.existsSync(path.join(d, 'caredesk.sqlite'))) return false;
+    fs.copyFileSync(path.join(d, 'caredesk.sqlite'), dst); if (fs.existsSync(path.join(d, 'fonts'))) fs.cpSync(path.join(d, 'fonts'), path.join(dataDir(), 'fonts'), { recursive: true }); return true;
+  } catch { return false; }
+}
 function boot() {
+  restoreIfMissing();
   db = new DB(path.join(dataDir(), 'caredesk.sqlite')); svc = new Service(db);
-  fpInfo = getFingerprint(); lic = new License({ db, fp: fpInfo.fp, publicKey: pubKey }); lic.ensureStarted(); svc.getTier = () => (PAID ? lic.status().tier || 'trial' : 'max');
+  if (PAID) fpInfo = getFingerprint(); // paid mode seals the licence to the machine and needs it at once
+  else { try { const c = JSON.parse(fs.readFileSync(fpCacheFile(), 'utf8')); if (c && c.fp && c.host === require('os').hostname()) fpInfo = { fp: c.fp, parts: c.parts }; } catch { /* first run: computed later */ } }
+  lic = new License({ db, fp: fpInfo ? fpInfo.fp : 'pending', publicKey: pubKey }); if (PAID) lic.ensureStarted();
+  svc.getTier = () => (PAID ? lic.status().tier || 'trial' : 'max');
   cache.account = db.getSetting('account', null);
   rep = reporter.create(path.join(dataDir(), 'error-queue.json'), { version: pkg.version });
 }
 function cmpVer(a, b) { const sp = (v) => { const [core, pre] = String(v).replace(/^v/, '').split('-'); return { c: core.split('.').map(Number), p: pre ? pre.split('.').map((x) => (/^\d+$/.test(x) ? Number(x) : x)) : null }; }; const A = sp(a), B = sp(b); for (let i = 0; i < 3; i++) { const d = (A.c[i] || 0) - (B.c[i] || 0); if (d) return d > 0 ? 1 : -1; } if (!A.p && !B.p) return 0; if (!A.p) return 1; if (!B.p) return -1; for (let i = 0; i < Math.max(A.p.length, B.p.length); i++) { const x = A.p[i], y = B.p[i]; if (x === y) continue; if (x === undefined) return -1; if (y === undefined) return 1; if (typeof x === 'number' && typeof y === 'number') return x > y ? 1 : -1; return String(x) > String(y) ? 1 : -1; } return 0; }
 const licStatus = () => ({ ...(PAID ? lic.status() : { status: 'active', canUse: true, plan: 'community', tier: 'max', daysLeft: null, expiresAt: null, warn: false }), account: cache.account && { username: cache.account.username, email: cache.account.email, emailVerified: cache.account.emailVerified } });
-const devInfo = () => ({ fp: fpInfo.fp, parts: fpInfo.parts, deviceName: require('os').hostname() });
+const devInfo = async () => { const f = await ensureFp(); return { fp: f.fp, parts: f.parts, deviceName: require('os').hostname() }; };
 
 async function heartbeat(force) {
   if (!PAID) return;
   if (!force && !lic.needsCheck(cfg.heartbeatHours * 3600000 || 21600000)) return;
   const prov = lic.blob && lic.blob.provisional ? lic.blob.provisional.startedAt : undefined;
-  const res = await cloud.post(GAS(), { action: 'check', ...devInfo(), provisionalStart: prov });
+  const res = await cloud.post(GAS(), { action: 'check', ...(await devInfo()), provisionalStart: prov });
   if (res.offline) return;
   lic.applyServer(res); emit('license:changed', licStatus());
 }
@@ -74,26 +155,42 @@ ipcMain.handle('cd:call', wrap((method, args) => {
 }));
 
 // ---- cloud (accounts, licence) -----------------------------------------------------------
+const CLOUD_SLOW = new Set(['register', 'verifyEmail', 'resendCode', 'forgot', 'resetPassword', 'login']);
 const CLOUD_PLAIN = new Set(['register', 'verifyEmail', 'resendCode', 'forgot', 'resetPassword', 'latest', 'ping']);
 ipcMain.handle('cd:cloud', wrap(async (action, args = {}) => {
   const body = { action, ...args, lang: db.settings().lang };
-  if (!CLOUD_PLAIN.has(action)) { Object.assign(body, devInfo()); if (cache.account && cache.account.session && !body.session) body.session = cache.account.session; }
-  const res = await cloud.post(GAS(), body);
+  if (!CLOUD_PLAIN.has(action)) { Object.assign(body, await devInfo()); if (cache.account && cache.account.session && !body.session) body.session = cache.account.session; }
+  const res = await cloud.post(GAS(), body, CLOUD_SLOW.has(action) ? 60000 : 20000); // Apps Script cold starts / sending the e-mail can take 10-30 s
   if (res.ok && action === 'login') {
     cache.account = { ...res.account, session: res.session, sub: res.sub }; db.setSetting('account', cache.account);
-    if (res.token) lic.applyServer(res);
+    if (res.token && PAID) lic.applyServer(res);
     const name = res.sub ? res.sub.id.split('@')[0] : res.account.username; const role = res.sub && res.sub.role === 'secretary' ? 'secretary' : 'admin'; actor = localActor(name, role, res.sub ? res.sub.perms : []);
     db.run('UPDATE secretaries SET role=? WHERE id=?', role, actor.id);
-  } else if (res.ok && ['trialStart', 'redeem'].includes(action) && res.token) lic.applyServer(res);
+  } else if (PAID && res.ok && ['trialStart', 'redeem'].includes(action) && res.token) lic.applyServer(res);
   else if (res.ok && action === 'verifyEmail' && cache.account) { cache.account.emailVerified = true; db.setSetting('account', cache.account); }
-  else if (!res.ok && res.code && !res.offline) { if (['TRIAL_USED', 'EXPIRED', 'REVOKED', 'DEVICE_LIMIT', 'BANNED'].includes(res.code)) lic.applyServer(res); }
+  else if (PAID && !res.ok && res.code && !res.offline) { if (['TRIAL_USED', 'EXPIRED', 'REVOKED', 'DEVICE_LIMIT', 'BANNED'].includes(res.code)) lic.applyServer(res); }
   emit('license:changed', licStatus());
   if (res.session) delete res.session; // session token stays in the main process
   return res;
 }));
 
 // ---- system helpers ----------------------------------------------------------------------
+const FONT_EXT = /\.(ttf|otf|woff2?)$/i;
+const fontsDir = () => { const d = path.join(dataDir(), 'fonts'); try { fs.mkdirSync(d, { recursive: true }); } catch { /* ignore */ } return d; };
 const SYS = {
+  // user fonts (e.g. Zanjabeel.ttf, WastedVindey.otf): drop them in <data>/fonts, the file name is the font name
+  customFonts: () => { const out = []; try { for (const f of fs.readdirSync(fontsDir()).filter((x) => FONT_EXT.test(x)).slice(0, 12)) { const fp = path.join(fontsDir(), f); if (fs.statSync(fp).size > 6 * 1024 * 1024) continue; const ext = f.split('.').pop().toLowerCase(); const mime = ext === 'woff2' ? 'font/woff2' : ext === 'woff' ? 'font/woff' : ext === 'otf' ? 'font/otf' : 'font/ttf'; out.push({ family: f.replace(FONT_EXT, '').replace(/[_-]+/g, ' ').trim(), url: `data:${mime};base64,` + fs.readFileSync(fp).toString('base64') }); } } catch { /* ignore */ } return out; },
+  openFontsDir: () => { shell.openPath(fontsDir()); return true; },
+  zoom: ({ f }) => { const z = Math.max(0.5, Math.min(2, Number(f) || 1)); if (win && !win.isDestroyed()) win.webContents.setZoomFactor(z); return z; },
+  msStatus: () => { const c = msCfg(); const exe = msExe(); return { ...microsip().status(), enabled: c.enabled, path: c.path, found: exe, port: c.port, prefix: c.prefix, ini: exe ? require('./microsip').iniPathFor(exe) : '' }; },
+  msSet: async ({ enabled, path: p, port, prefix }) => { const old = msCfg(); const next = { enabled: !!enabled, path: String(p || '').slice(0, 400), port: Number(port) || 3848, prefix: String(prefix || '').replace(/\D/g, '').slice(0, 4) };
+    if (next.path && !require('./microsip').isMicroSip(next.path)) throw Object.assign(new Error('BAD_PATH'), { code: 'BAD_PATH' }); db.setSetting('s.microsip', next);
+    try { await msStart(); } catch (e) { db.setSetting('s.microsip', { ...next, enabled: false }); throw e; } return SYS.msStatus(); },
+  msPick: async () => { const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'MicroSIP', extensions: ['exe'] }] }); return r.canceled ? null : r.filePaths[0]; },
+  msInstallHook: () => { const exe = msExe(); if (!exe) throw Object.assign(new Error('NO_MICROSIP'), { code: 'NO_MICROSIP' }); return microsip().installHook(exe); },
+  msTest: ({ number }) => { onIncomingCall(String(number || '07700000000')); return true; },
+  msOpen: () => { const exe = msExe(); if (!exe) throw Object.assign(new Error('NO_MICROSIP'), { code: 'NO_MICROSIP' }); require('child_process').spawn(exe, [], { detached: true, stdio: 'ignore' }).unref(); return true; },
+  dial: async ({ phone }) => { const c = msCfg(); return require('./microsip').dial({ exe: msExe(), number: phone, prefix: c.prefix }); },
   phoneStatus: () => phone().status(),
   phoneSet: async ({ enabled, port }) => { const pl = phone(); db.setSetting('s.phoneLink', { enabled: !!enabled, port: Number(port) || 8765 }); if (enabled) await pl.start(Number(port) || 8765); else await pl.stop(); return pl.status(); },
   phonePin: () => phone().newPin(),
@@ -110,20 +207,10 @@ const SYS = {
   reportError: ({ code, desc, solved }) => { report(String(code || 'E901').slice(0, 6), String(desc || '').slice(0, 300), !!solved); return true; },
   license: () => licStatus(),
   autostart: ({ on }) => { if (on !== undefined) app.setLoginItemSettings({ openAtLogin: !!on, args: ['--hidden'] }); return { on: app.getLoginItemSettings().openAtLogin }; },
-  checkUpdates: async () => {
-    if (!/^[\w.-]+\/[\w.-]+$/.test(cfg.githubRepo || '')) return { ok: false, code: 'NO_REPO' };
-    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 12000);
-    try { const r = await fetch(`https://api.github.com/repos/${cfg.githubRepo}/releases/latest`, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'CareDesk' }, signal: ctl.signal }); if (!r.ok) return { ok: false, code: 'HTTP_' + r.status };
-      const j = await r.json(); const ver = String(j.tag_name || '').replace(/^v/, ''); const asset = (j.assets || []).find((a) => /\.exe$/i.test(a.name));
-      return { ok: true, version: ver, current: app.getVersion(), newer: cmpVer(ver, app.getVersion()) > 0, notes: String(j.body || '').slice(0, 2000), url: asset ? asset.browser_download_url : '', page: j.html_url }; }
-    catch { return { ok: false, code: 'OFFLINE' }; } finally { clearTimeout(tm); }
-  },
-  downloadUpdate: async ({ url }) => {
-    if (!/^https:\/\/(github\.com|objects\.githubusercontent\.com|release-assets\.githubusercontent\.com)\//.test(url || '') || !/\.exe(\?|$)/i.test(url)) throw new Error('BAD_UPDATE_URL');
-    const r = await fetch(url, { redirect: 'follow' }); if (!r.ok) throw new Error('HTTP_' + r.status);
-    const file = path.join(require('os').tmpdir(), 'CareDesk-Setup-update.exe'); fs.writeFileSync(file, Buffer.from(await r.arrayBuffer())); return { file };
-  },
-  installUpdate: ({ file }) => { if (path.basename(file || '') !== 'CareDesk-Setup-update.exe') throw new Error('BAD_FILE'); shell.openPath(path.join(require('os').tmpdir(), 'CareDesk-Setup-update.exe')); quitting = true; setTimeout(() => app.quit(), 600); return true; },
+  checkUpdates: async () => { const r = await queryLatest(); if (r.ok && r.newer && pending && pending.version === r.version) r.ready = true; return r; },
+  downloadUpdate: async ({ url }) => { const f = await fetchInstaller(url); return { file: path.basename(f) }; },
+  installUpdate: () => applyUpdate(true),
+  updateState: () => ({ pending: pending ? { version: pending.version } : null }),
   notices: async () => { if (!GAS()) return { ok: false, code: 'NO_SERVER' }; return cloud.post(GAS(), { action: 'notices' }, 10000); },
   edition: () => ({ paid: PAID, version: app.getVersion(), site: cfg.site, repo: cfg.githubRepo || '' }),
   heartbeat: async () => { await heartbeat(true); return licStatus(); },
@@ -138,7 +225,7 @@ const SYS = {
     try { const r = await fetch(u.replace(/\/$/, '') + '/ratings/create', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ items }), signal: ctl.signal }); const j = await r.json().catch(() => ({})); return r.ok ? { ok: true, links: j.links || {} } : { ok: false, code: 'HTTP_' + r.status }; }
     catch { return { ok: false, code: 'OFFLINE' }; } finally { clearTimeout(tm); }
   },
-  info: () => ({ version: pkg.version, site: cfg.site, fp: fpInfo.fp.slice(0, 12), dataDir: dataDir(), oauth: cfg.oauth }),
+  info: () => ({ version: pkg.version, site: cfg.site, fp: ((fpInfo && fpInfo.fp) || '').slice(0, 12), dataDir: dataDir(), oauth: cfg.oauth }),
   open: (url) => { if (!ALLOWED_EXTERNAL.test(String(url))) throw new Error('BLOCKED_URL'); return shell.openExternal(url); },
   whatsapp: ({ phone, text }) => { const s = db.settings(); return shell.openExternal(M.waUrl(phone, text, s.countryCode)); },
   barcodeSvg: ({ code }) => barcode.svg(String(code)),
@@ -190,7 +277,9 @@ function createWindow() {
     icon: path.join(__dirname, '../../build/icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false }
   });
-  win.once('ready-to-show', () => { if (!process.argv.includes('--hidden')) win.show(); });
+  const hiddenStart = process.argv.includes('--hidden'); win.once('ready-to-show', () => { if (!hiddenStart) win.show(); });
+  setTimeout(() => { if (!hiddenStart && win && !win.isDestroyed() && !win.isVisible()) win.show(); }, 3000); // never stay invisible, even if the first paint is late
+  win.on('session-end', () => { sessionEnding = true; }); // Windows is shutting down: never start an installer now
   win.on('minimize', () => { try { if (svc.getSettings().backgroundOnMinimize) { win.hide(); makeTray(); } } catch { /* ignore */ } });
   win.on('close', (e) => { try { if (!quitting && svc.getSettings().backgroundOnClose) { e.preventDefault(); win.hide(); makeTray(); } } catch { /* ignore */ } });
   win.webContents.setWindowOpenHandler(({ url }) => { if (ALLOWED_EXTERNAL.test(url)) shell.openExternal(url); return { action: 'deny' }; });
@@ -215,15 +304,22 @@ function verifyIntegrity() {
     dialog.showErrorBox('CareDesk', 'تم اكتشاف تعديل في ملفات التطبيق. أعد تثبيته من المصدر الرسمي. بياناتك لم تتأثر.\nApplication files were modified. Please reinstall from the official source. Your data is safe.'); app.quit(); return false;
   } catch { return true; }
 }
-app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+app.on('second-instance', () => { if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); if (!win.isVisible()) win.show(); win.focus(); } }); // a copy hidden in the tray must come back when the user starts the app again
 app.whenReady().then(() => {
+  setTimeout(() => { msStart().catch(() => {}); }, 3500); // softphone bridge (only listens when enabled in Settings)
   setTimeout(() => { try { const pl = db.settings().phoneLink; if (pl && pl.enabled) phone().start(pl.port).catch(() => {}); } catch { /* ignore */ } }, 3000);
   Menu.setApplicationMenu(null);
-  session.defaultSession.webRequest.onHeadersReceived((d, cb) => cb({ responseHeaders: { ...d.responseHeaders, 'Content-Security-Policy': ["default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"] } }));
+  session.defaultSession.webRequest.onHeadersReceived((d, cb) => cb({ responseHeaders: { ...d.responseHeaders, 'Content-Security-Policy': ["default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"] } }));
   session.defaultSession.setPermissionRequestHandler((_w, _p, cb) => cb(false));
-  boot(); if (!verifyIntegrity()) return; createWindow();
+  boot(); createWindow();
+  setTimeout(() => { if (!verifyIntegrity()) return; }, 2500); // file-integrity scan after the window is up (it reads every source file: slow on a cold disk with antivirus)
+  setTimeout(() => { ensureFp().catch(() => {}); }, 1500); // device fingerprint in the background (cached after the first run)
+  setTimeout(() => { try { if (!pending) fs.rmSync(UPD_FILE(), { force: true }); } catch { /* ignore */ } }, 15000); // leftover installer from a finished update
+  setTimeout(autoUpdateTick, 25000); setInterval(autoUpdateTick, 4 * 3600 * 1000);
   setTimeout(flushReports, 6000); setInterval(flushReports, 30 * 60000);
   setTimeout(() => heartbeat(false), 3000); setInterval(() => heartbeat(false), 30 * 60000);
   setInterval(() => { try { if (!PAID || lic.status().canUse) { const r = svc.sweep({}, { name: 'system' }); if (r && (r.warned || r.dropped)) emit('notify', r); } } catch { /* ignore */ } }, 15 * 60000);
 });
+app.on('quit', () => { try { msInst && msInst.stop(); } catch { /* ignore */ }
+   if (pending && !applying && !sessionEnding) applyUpdate(false); }); // closed by the user -> install the downloaded update silently
 app.on('window-all-closed', () => { try { db && db.close(); } catch { /* ignore */ } app.quit(); });

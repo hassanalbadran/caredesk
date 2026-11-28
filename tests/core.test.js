@@ -145,3 +145,41 @@ test('plan limit blocks extra secretaries on trial tier', () => {
   for (let i = before; i < 2; i++) svc.saveSecretary({ name: 'x' + i }, a);
   assert.throws(() => svc.saveSecretary({ name: 'over' }, a), /PLAN_LIMIT/);
 });
+
+// ---- 1.0: fixed start time per patient + two different sessions on one day ----
+test('fixed start time: every session starts at 16:00 even though 09:00 is free; retime moves existing ones', () => {
+  const o = setup();
+  const r = o.svc.previewPlan({ plans: [{ typeId: o.type, deviceId: o.devA, count: 4, startDate: '2026-11-22', startTime: '16:00' }] });
+  assert.strictEqual(r.unplaced, 0);
+  assert.ok(r.bookings.every((b) => b.time === '16:00'), JSON.stringify(r.bookings.map((b) => b.time)));
+  // a second patient wanting the same hour on the same device gets the nearest free slot, never an overlap
+  const pid = o.svc.savePatient({ patient: { name: 'A', gender: 'M', phone: '07700000001' }, bookings: r.bookings }, o.A).id;
+  const r2 = o.svc.previewPlan({ plans: [{ typeId: o.type, deviceId: o.devA, count: 2, startDate: '2026-11-22', startTime: '16:00' }] });
+  assert.ok(r2.bookings.every((b) => b.time !== '16:00' && b.time >= '16:30' || b.time === '15:30'), JSON.stringify(r2.bookings.map((b) => b.time)));
+  // retime an existing patient created with the default (early) distribution
+  const early = o.svc.previewPlan({ plans: [{ typeId: o.type, deviceId: o.devB, count: 3, startDate: '2026-11-22' }] });
+  const p2 = o.svc.savePatient({ patient: { name: 'B', gender: 'M', phone: '07700000002' }, bookings: early.bookings }, o.A).id;
+  const res = o.svc.retimePatient({ id: p2, time: '15:00', fromDate: '2026-11-22' }, o.A);
+  assert.strictEqual(res.failed, 0); assert.strictEqual(res.moved, 3);
+  assert.ok(o.svc.getPatient({ id: p2 }).bookings.every((b) => b.time === '15:00'));
+  assert.strictEqual(o.svc.getPatient({ id: p2 }).pref_time, '15:00');
+});
+test('two different sessions of one patient share a day (also with a fixed time and a shared therapist)', () => {
+  const o = setup();
+  const t2 = o.svc.saveCatalog({ kind: 'type', item: { name: 'Pull', duration_min: 30, per_day: 1 } }, o.A);
+  const d2 = o.svc.saveCatalog({ kind: 'device', item: { name: 'Dev P', typeIds: [t2] } }, o.A);
+  const pattern = { days: [{ off: 0, types: [o.type, t2] }], period: 2 };
+  for (const startTime of [undefined, '16:00']) {
+    const r = o.svc.planFromPattern({ pattern, startDate: '2026-11-22', packages: [{ typeId: o.type, count: 3, deviceId: o.devA, startTime }, { typeId: t2, count: 3, deviceId: d2, startTime }] });
+    assert.strictEqual(r.unplaced, 0);
+    const days = new Map(); r.bookings.forEach((b) => (days.get(b.date) || days.set(b.date, []).get(b.date)).push(b));
+    assert.ok([...days.values()].every((l) => l.length === 2), JSON.stringify([...days]));
+    for (const l of days.values()) assert.ok(l[0].end_time <= l[1].time || l[1].end_time <= l[0].time); // never overlapping for the patient
+  }
+});
+test('slotCheck knows the unsaved preview sessions of the same patient', () => {
+  const o = setup();
+  const c = o.svc.slotCheck({ date: '2026-11-23', time: '09:00', typeId: o.type, deviceId: o.devB, patientId: -1, others: [{ date: '2026-11-23', time: '09:00', end_time: '09:30', type_id: o.type, device_id: o.devA }] });
+  assert.strictEqual(c.ok, false); assert.ok(c.issues.some((i) => i.kind === 'patient_overlap'));
+  assert.strictEqual(c.suggestion.date, '2026-11-23');
+});

@@ -5,7 +5,10 @@ const DEFAULTS = {
   theme: 'system',            // system | light | dark | sand | ocean
   customCursor: true,
   reduceMotion: false,
-  fontScale: 1,
+  fontScale: 1,               // whole-interface size (browser-style zoom), 0.7 .. 1.6
+  fontPack: 'classic',        // classic | zain | editorial | custom (font + theme bundles)
+  fontUi: '', fontHead: '',   // font families chosen from <data>/fonts when fontPack is custom
+  autoFit: true,              // also shrink the interface automatically on small / high-DPI screens
   countryCode: '964',
   currency: 'IQD',
   slotStep: 15,
@@ -17,6 +20,8 @@ const DEFAULTS = {
   lateTagPolicy: 'late_slots',// patients with tag effect 'late_slots' get late slots automatically
   backgroundOnMinimize: false, // minimise to tray and keep running
   backgroundOnClose: false,
+  microsip: { enabled: false, path: '', port: 3848, prefix: '' }, // softphone link (Settings > Integrations)
+  autoUpdate: true,           // download new versions in the background and install them when the app is closed
   sounds: true,
   autoTags: true,             // laggard / committed tags are given automatically (manual tags are never touched)
   laggardMisses: 2,           // misses within the last 8 sessions => laggard

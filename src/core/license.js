@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, execFile } = require('child_process');
 
 const SALT = 'caredesk.v1.fp';
 const DAY = 86400000;
@@ -12,16 +12,18 @@ const TRIAL_DAYS = 14, WARN_DAYS = 7;
 const sha = (s) => crypto.createHash('sha256').update(SALT + '|' + s).digest('hex');
 const BAD = /^(0+|f+|to be filled.*|default string|none|n\/a|system serial number|not specified|unknown)$/i;
 
+// One PowerShell start (not three) returns "uuid|board|bios". Same values as before, so existing fingerprints do not change.
+const PS_ARGS = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
+  '$a=(Get-CimInstance Win32_ComputerSystemProduct).UUID;$b=(Get-CimInstance Win32_BaseBoard).SerialNumber;$c=(Get-CimInstance Win32_BIOS).SerialNumber;"$a|$b|$c"'];
+const parseWinParts = (out) => { const [uuid = '', board = '', bios = ''] = String(out || '').trim().split('|').map((x) => x.trim()); return { uuid, board, bios }; };
+
 // ---- device fingerprint: composite + individual parts so a Windows reinstall can't reset the trial ----
 function rawParts(exec = execFileSync, platform = process.platform) {
   const p = {};
   const run = (cmd, args) => { try { return String(exec(cmd, args, { timeout: 8000, windowsHide: true })).trim(); } catch { return ''; } };
   if (platform === 'win32') {
     const reg = run('reg', ['query', 'HKLM\\SOFTWARE\\Microsoft\\Cryptography', '/v', 'MachineGuid']); p.guid = (reg.match(/MachineGuid\s+REG_SZ\s+(\S+)/i) || [])[1] || '';
-    const ps = (q) => run('powershell', ['-NoProfile', '-NonInteractive', '-Command', q]);
-    p.uuid = ps('(Get-CimInstance Win32_ComputerSystemProduct).UUID');
-    p.board = ps('(Get-CimInstance Win32_BaseBoard).SerialNumber');
-    p.bios = ps('(Get-CimInstance Win32_BIOS).SerialNumber');
+    Object.assign(p, parseWinParts(run('powershell', PS_ARGS)));
   } else if (platform === 'darwin') {
     p.uuid = (run('ioreg', ['-rd1', '-c', 'IOPlatformExpertDevice']).match(/IOPlatformUUID" = "([^"]+)"/) || [])[1] || '';
   } else {
@@ -30,6 +32,20 @@ function rawParts(exec = execFileSync, platform = process.platform) {
   }
   return p;
 }
+// Async variant for application start-up: never blocks the main process (a cold PowerShell/WMI right after boot can take 10-30 s).
+function rawPartsAsync(platform = process.platform, execAsync = execFile) {
+  const run = (cmd, args, timeout = 40000) => new Promise((res) => { try { execAsync(cmd, args, { timeout, windowsHide: true }, (err, out) => res(err ? '' : String(out).trim())); } catch { res(''); } });
+  if (platform !== 'win32') return Promise.resolve(rawParts(undefined, platform));
+  return Promise.all([run('reg', ['query', 'HKLM\\SOFTWARE\\Microsoft\\Cryptography', '/v', 'MachineGuid'], 10000), run('powershell', PS_ARGS)])
+    .then(([reg, ps]) => ({ guid: (reg.match(/MachineGuid\s+REG_SZ\s+(\S+)/i) || [])[1] || '', ...parseWinParts(ps) }));
+}
+const finishFingerprint = (raw) => {
+  const parts = {}; for (const [k, v] of Object.entries(raw)) if (v && !BAD.test(v)) parts[k] = sha(k + ':' + v.toLowerCase());
+  if (!Object.keys(parts).length) parts.host = sha('host:' + os.hostname() + os.cpus()[0]?.model);
+  return { fp: sha(Object.keys(parts).sort().map((k) => parts[k]).join('|')), parts };
+};
+const getFingerprintAsync = (opts = {}) => (opts.parts ? Promise.resolve(finishFingerprint(opts.parts)) : rawPartsAsync(opts.platform, opts.execFile).then(finishFingerprint));
+
 function getFingerprint(opts = {}) {
   const raw = opts.parts || rawParts(opts.exec, opts.platform);
   const parts = {};
@@ -138,4 +154,4 @@ class License {
   }
   needsCheck(maxAgeMs = 6 * 3600 * 1000) { return !this.blob || !this.blob.verifiedAt || this.now() - this.blob.verifiedAt > maxAgeMs; }
 }
-module.exports = { License, getFingerprint, rawParts, verifyToken, signToken, seal, unseal, fileMarkers, TRIAL_DAYS, WARN_DAYS, DAY };
+module.exports = { License, getFingerprint, getFingerprintAsync, parseWinParts, rawParts, verifyToken, signToken, seal, unseal, fileMarkers, TRIAL_DAYS, WARN_DAYS, DAY };
